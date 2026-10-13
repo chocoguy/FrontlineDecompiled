@@ -1,0 +1,21 @@
+# Game files: never commit these
+orig/*/*
+!orig/*/.gitkeep
+*.iso
+*.gcm
+*.rvz
+*.ciso
+*.dol
+*.elf
+
+# Generated
+build/
+build.ninja
+compile_commands.json
+objdiff.json
+.ninja_deps
+.ninja_log
+drafts/
+__pycache__/
+*.pyc
+.DS_Store

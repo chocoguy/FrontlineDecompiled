@@ -1,0 +1,154 @@
+#include <dolphin/card_priv.h>
+#include <string.h>
+
+void* __CARDGetFatBlock(CARDControl* card) {
+    return card->currentFat;
+}
+
+static void WriteCallback(s32 chan, s32 result) {
+    CARDControl* card;
+    CARDCallback callback;
+    u16* fat;
+    u16* fatBack;
+
+    card = &__CARDBlock[chan];
+
+    if (result >= 0) {
+        fat = (u16*)((u8*)card->workArea + 0x6000);
+        fatBack = (u16*)((u8*)card->workArea + 0x8000);
+
+        if (card->currentFat == fat) {
+            card->currentFat = fatBack;
+            memcpy(fatBack, fat, CARD_SYSTEM_BLOCK_SIZE);
+        } else {
+            card->currentFat = fat;
+            memcpy(fat, fatBack, CARD_SYSTEM_BLOCK_SIZE);
+        }
+    }
+
+    if (card->apiCallback == NULL) {
+        __CARDPutControlBlock(card, result);
+    }
+    callback = card->eraseCallback;
+    if (callback) {
+        card->eraseCallback = NULL;
+        callback(chan, result);
+    }
+}
+
+static void EraseCallback(s32 chan, s32 result) {
+    CARDControl* card;
+    CARDCallback callback;
+    u16* fat;
+    u32 addr;
+
+    card = &__CARDBlock[chan];
+    if (result < 0) {
+        goto error;
+    }
+
+    fat = card->currentFat;
+    addr = ((u32)fat - (u32)card->workArea) / CARD_SYSTEM_BLOCK_SIZE * card->sectorSize;
+    result = __CARDWrite(chan, addr, CARD_SYSTEM_BLOCK_SIZE, fat, WriteCallback);
+    if (result < 0) {
+        goto error;
+    }
+    return;
+
+error:
+    if (card->apiCallback == NULL) {
+        __CARDPutControlBlock(card, result);
+    }
+    callback = card->eraseCallback;
+    if (callback) {
+        card->eraseCallback = NULL;
+        callback(chan, result);
+    }
+}
+
+s32 __CARDAllocBlock(s32 chan, u32 cBlock, CARDCallback callback) {
+    CARDControl* card;
+    u16* fat;
+    u16 iBlock;
+    u16 startBlock;
+    u16 prevBlock;
+    u16 count;
+
+    card = &__CARDBlock[chan];
+    if (!card->attached) {
+        return CARD_RESULT_NOCARD;
+    }
+
+    fat = card->currentFat;
+    if (fat[CARD_FAT_FREEBLOCKS] < cBlock) {
+        return CARD_RESULT_INSSPACE;
+    }
+
+    fat[CARD_FAT_FREEBLOCKS] -= cBlock;
+    startBlock = 0xFFFF;
+    iBlock = fat[CARD_FAT_LASTSLOT];
+    count = 0;
+    while (0 < cBlock) {
+        if (card->cBlock - CARD_NUM_SYSTEM_BLOCK < ++count) {
+            return CARD_RESULT_BROKEN;
+        }
+
+        iBlock++;
+        if (!CARDIsValidBlockNo(card, iBlock)) {
+            iBlock = CARD_NUM_SYSTEM_BLOCK;
+        }
+
+        if (fat[iBlock] == 0x0000) {
+            if (startBlock == 0xFFFF) {
+                startBlock = iBlock;
+            } else {
+                fat[prevBlock] = iBlock;
+            }
+            prevBlock = iBlock;
+            fat[iBlock] = 0xFFFF;
+            --cBlock;
+        }
+    }
+    fat[CARD_FAT_LASTSLOT] = iBlock;
+    card->startBlock = startBlock;
+
+    return __CARDUpdateFatBlock(chan, fat, callback);
+}
+
+s32 __CARDFreeBlock(s32 chan, u16 nBlock, CARDCallback callback) {
+    CARDControl* card;
+    u16* fat;
+    u16 nextBlock;
+
+    card = &__CARDBlock[chan];
+    if (!card->attached) {
+        return CARD_RESULT_NOCARD;
+    }
+
+    fat = card->currentFat;
+    while (nBlock != 0xFFFF) {
+        if (!CARDIsValidBlockNo(card, nBlock)) {
+            return CARD_RESULT_BROKEN;
+        }
+
+        nextBlock = fat[nBlock];
+        fat[nBlock] = 0;
+        nBlock = nextBlock;
+        ++fat[CARD_FAT_FREEBLOCKS];
+    }
+
+    return __CARDUpdateFatBlock(chan, fat, callback);
+}
+
+s32 __CARDUpdateFatBlock(s32 chan, u16* fat, CARDCallback callback) {
+    CARDControl* card;
+
+    card = &__CARDBlock[chan];
+    ++fat[CARD_FAT_CHECKCODE];
+    __CARDCheckSum(fat + CARD_FAT_CHECKCODE, 0x1FFC, fat, fat + 1);
+    DCStoreRange(fat, CARD_SYSTEM_BLOCK_SIZE);
+    card->eraseCallback = callback;
+
+    return __CARDEraseSector(chan, (((u32)fat - (u32)card->workArea) / CARD_SYSTEM_BLOCK_SIZE) * card->sectorSize,
+                             EraseCallback);
+}

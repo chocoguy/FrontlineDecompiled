@@ -1,0 +1,193 @@
+# See config.example.yml for documentation.
+# The game runs from Moh2RelGC.elf (main.dol is only a boot loader), so the
+# project is based on a DOL converted from it with `dtk elf2dol`.
+object: orig/GMFE69/Moh2RelGC.dol
+hash: 0e96c0bea0d7717297f376b7b11229ca99b4b9c6
+symbols: config/GMFE69/symbols.txt
+splits: config/GMFE69/splits.txt
+# Change this to match the linker version.
+# See config.example.yml for a list.
+# Unverified: the ELF has no .comment section to read this from.
+mw_comment_version: 8
+
+# Relocations dtk's DOL analysis got wrong, checked against the real
+# relocations kept in Moh2RelGC.elf (see tools/check_relocs.py). These only
+# matter when code or data moves, i.e. non-matching builds.
+block_relocations:
+# Constant 0x80010003 built with lis/addi, not a pointer (SNDAEMSI_updateplayerbank).
+- source: .text:0x8015750C
+- source: .text:0x8015751C
+# Memory card icon palette bytes, not pointers.
+- source: .rodata:0x80179720
+  end: .rodata:0x80179920
+# Debug font bitmap bytes, not pointers.
+- source: .data:0x8017B7E0
+  end: .data:0x80181A90
+add_relocations:
+# TRK exception vector table jumps to TRKInterruptHandler via lis/ori.
+- source: .init:0x800074D8
+  type: rel24
+  target: __TRK_reset
+- source: .init:0x80007610
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x80007614
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x800076F8
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x800076FC
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x800077F8
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x800077FC
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x800078F8
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x800078FC
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x800079F8
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x800079FC
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x80007AF8
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x80007AFC
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x80007BF8
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x80007BFC
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x80007CF8
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x80007CFC
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x80007FF8
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x80007FFC
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x800080F8
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x800080FC
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x800081F8
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x800081FC
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x80008318
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x8000831C
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x8000834C
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x80008350
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x80008434
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x80008438
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x80008534
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x80008538
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x80008634
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x80008638
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x800086F8
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x800086FC
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x800087F8
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x800087FC
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x800089F8
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x800089FC
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x80008AF8
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x80008AFC
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x80008FF8
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x80008FFC
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x800090F8
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x800090FC
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x800091F8
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x800091FC
+  type: l
+  target: TRKInterruptHandler
+- source: .init:0x800092F8
+  type: hi
+  target: TRKInterruptHandler
+- source: .init:0x800092FC
+  type: l
+  target: TRKInterruptHandler
+
+# Game data the source needs, pulled from the user's own copy of the game at
+# build time so no copyrighted bytes live in the repository.
+extract:
+- symbol: InternalFont
+  header: game/Moh2_InternalFont.inc
+  header_type: raw
+- symbol: ICON_CLUT_DATA
+  header: game/MemoryCardIconClut.inc
+  header_type: raw
+- symbol: ICON_TEXTURE_DATA
+  header: game/MemoryCardIcon.inc
+  header_type: raw
+- symbol: axDspSlave
+  header: dolphin/ax/axDspSlave.inc
+  header_type: raw
+- symbol: DSPInitCode
+  header: dolphin/os/DSPInitCode.inc
+  header_type: raw
