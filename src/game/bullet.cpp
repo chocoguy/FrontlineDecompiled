@@ -43,6 +43,7 @@ int CBullet::Init() {
     field_0x94 = BIG_FLOAT;
     field_0x8 = 0;
     field_0x4 = 0;
+    END_RETURN_NOTHING
 }
 
 CBullet::~CBullet() {}

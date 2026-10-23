@@ -51,7 +51,7 @@ OSMessage ReadFileThreadMsgData[0x20];
 static READSTATE gCurRead __attribute__((aligned(32)));
 
 static void ReadFileThreadFunc(void* param);
-static void AyncDVDCallback(long result, DVDFileInfo* info);
+static void AyncDVDCallback(s32 result, DVDFileInfo* info);
 
 void initfiledev() {
     OSCreateThread(&ReadFileThread, (void* (*)(void*))ReadFileThreadFunc, NULL,
@@ -184,11 +184,11 @@ static void AyncDVDRead(DVDFileInfo* info) {
     int n;
 
     if (gCurRead.state == READ_LEADIN) {
-        MEM_copy((void*)gCurRead.cur, gCurRead.buf + gCurRead.misalign, gCurRead.lead);
+        MEM_copy(ADDR_TO_PTR(void, gCurRead.cur), gCurRead.buf + gCurRead.misalign, gCurRead.lead);
         gCurRead.cur += gCurRead.lead;
         gCurRead.offset += gCurRead.lead;
     } else if (gCurRead.state == READ_DIRECT) {
-        DCInvalidateRange((void*)gCurRead.cur, gCurRead.dstenddown - gCurRead.cur);
+        DCInvalidateRange(ADDR_TO_PTR(void, gCurRead.cur), gCurRead.dstenddown - gCurRead.cur);
         n = gCurRead.dstenddown - gCurRead.cur;
         gCurRead.offset += n;
         gCurRead.cur += n;
@@ -197,11 +197,11 @@ static void AyncDVDRead(DVDFileInfo* info) {
         if (gCurRead.dstend - gCurRead.cur < 0x4000) {
             n = gCurRead.dstend - gCurRead.cur;
         }
-        MEM_copy((void*)gCurRead.cur, gCurRead.buf, n);
+        MEM_copy(ADDR_TO_PTR(void, gCurRead.cur), gCurRead.buf, n);
         gCurRead.cur += n;
         gCurRead.offset += n;
     } else if (gCurRead.state == READ_SMALL) {
-        MEM_copy((void*)gCurRead.cur, gCurRead.buf + gCurRead.misalign, gCurRead.size);
+        MEM_copy(ADDR_TO_PTR(void, gCurRead.cur), gCurRead.buf + gCurRead.misalign, gCurRead.size);
         gCurRead.state = READ_SMALL;
         gCurRead.state = READ_DONE;
         AyncDVDCallback(0, NULL);
@@ -210,7 +210,7 @@ static void AyncDVDRead(DVDFileInfo* info) {
 
     if (gCurRead.cur == gCurRead.dstup && gCurRead.cur < gCurRead.dstenddown) {
         gCurRead.state = READ_DIRECT;
-        gCurRead.result = DVDReadAsyncPrio(info, (void*)gCurRead.cur, gCurRead.dstenddown - gCurRead.cur,
+        gCurRead.result = DVDReadAsyncPrio(info, ADDR_TO_PTR(void, gCurRead.cur), gCurRead.dstenddown - gCurRead.cur,
                                            gCurRead.offset, AyncDVDCallback, 2);
     } else if (gCurRead.dstend > gCurRead.cur) {
         int size = 0x4000;
@@ -237,11 +237,11 @@ static int StartNonAlignedAyncRead(DVDFileInfo* info, void* dst, long offset, lo
 
     gCurRead.size = size;
     gCurRead.offset = offset;
-    gCurRead.cur = (int)dst;
-    gCurRead.dstdown = (int)dst & ~31;
-    gCurRead.dstup = ((int)dst + 31) & ~31;
-    gCurRead.dstend = (int)dst + size;
-    gCurRead.dstenddown = ((int)dst + size) & ~31;
+    gCurRead.cur = (int)PTR_TO_ADDR(dst);
+    gCurRead.dstdown = (int)PTR_TO_ADDR(dst) & ~31;
+    gCurRead.dstup = ((int)PTR_TO_ADDR(dst) + 31) & ~31;
+    gCurRead.dstend = (int)PTR_TO_ADDR(dst) + size;
+    gCurRead.dstenddown = ((int)PTR_TO_ADDR(dst) + size) & ~31;
     gCurRead.offdown = offset & ~31;
     gCurRead.offup = (offset + 31) & ~31;
     gCurRead.offend = offset + size;
@@ -258,9 +258,9 @@ static int StartNonAlignedAyncRead(DVDFileInfo* info, void* dst, long offset, lo
         gCurRead.state = READ_LEADIN;
         gCurRead.result += DVDReadAsyncPrio(info, gCurRead.buf, (gCurRead.lead + 31) & ~31, gCurRead.offdown,
                                             AyncDVDCallback, 2);
-    } else if ((int)dst == gCurRead.dstup && (int)dst < gCurRead.dstenddown) {
+    } else if ((int)PTR_TO_ADDR(dst) == gCurRead.dstup && (int)PTR_TO_ADDR(dst) < gCurRead.dstenddown) {
         gCurRead.state = READ_DIRECT;
-        gCurRead.result = DVDReadAsyncPrio(info, dst, gCurRead.dstenddown - (int)dst, offset, AyncDVDCallback, 2);
+        gCurRead.result = DVDReadAsyncPrio(info, dst, gCurRead.dstenddown - (int)PTR_TO_ADDR(dst), offset, AyncDVDCallback, 2);
     } else if (gCurRead.dstend > gCurRead.cur) {
         int len = 0x4000;
         n = (gCurRead.dstend - gCurRead.cur + 31) & ~31;
@@ -273,7 +273,7 @@ static int StartNonAlignedAyncRead(DVDFileInfo* info, void* dst, long offset, lo
     return gCurRead.size;
 }
 
-static void AyncDVDCallback(long result, DVDFileInfo* info) {
+static void AyncDVDCallback(s32 result, DVDFileInfo* info) {
     OSSendMessage(&ReadFileThreadMsgQ, (OSMessage)1, OS_MESSAGE_BLOCK);
 }
 

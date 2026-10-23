@@ -14,6 +14,7 @@
 #include "game/bpdlight.h"
 #include "game/matrix.h"
 #include "game/shape.h"
+#include "game/gxstore.h"
 #include "game/gameconfig.h"
 #include "game/offsetptr.h"
 #include "dolphin/gx.h"
@@ -69,9 +70,12 @@ void CStaticAnimMesh::Init(void* data, bool relocate) {
     m_anim = (StaticAnimMesh*)data;
     if (relocate) {
         StaticAnimMesh* anim = m_anim;
-        offsetPtr(anim->m_frames, (int)anim);
+#ifdef FRONTLINE_NATIVE
+        StaticAnimMeshFromBigEndian(anim);
+#endif
+        offsetPtr(anim->m_frames, (int)PTR_TO_ADDR(anim));
         for (int i = 0; i < m_anim->m_numFrames; i++) {
-            offsetPtr(m_anim->m_frames[i], (int)anim);
+            offsetPtr(m_anim->m_frames[i], (int)PTR_TO_ADDR(anim));
             m_pData = m_anim->m_frames[i];
             CStaticMesh::Init();
         }
@@ -172,7 +176,7 @@ void CMSHMatBin::Link(CDmaTag* tag, CDmaPacket&) {
                 GXSetChanCtrl(4, 0, 0, 1, 0, 0, 2);
             }
 
-            MSHChunk* chunk = (MSHChunk*)data[i + RECORD_CHUNK];
+            MSHChunk* chunk = ADDR_TO_PTR(MSHChunk, data[i + RECORD_CHUNK]);
             MSHDisplayList* list = chunk->m_list;
             CMSHMatBin* material = chunk->m_material;
             if (list != NULL) {
@@ -225,7 +229,7 @@ int CMSHMatBin::Render(CDmaPacket& packet, void*) {
         memcpy(packet.m_ptr, modelView, sizeof(modelView));
         packet.m_ptr += sizeof(modelView);
         UpdateLightingParams(packet);
-        *(MSHChunk**)packet.m_ptr = m_chunks;
+        *(PTR32(MSHChunk)*)packet.m_ptr = m_chunks;
         packet.m_ptr += 4;
         MSHChunk* chunk = m_chunks;
         m_chunks = chunk->m_next;
@@ -392,19 +396,24 @@ CStaticMesh::CStaticMesh(StaticMesh* data, bool relocate) {
 
 // Builds a material bin in place and sets up its texture.
 static inline void InitMaterial(CMSHMatBin* material, int base) {
+#ifdef FRONTLINE_NATIVE
+    // Built and relocated by InitMaterials.
+    ShapeFile* file = ShapeFileFromBigEndian(material->m_shape);
+#else
     new (material) CMSHMatBin;
     offsetPtr(material->m_shape, base);
     ShapeFile* file = material->m_shape;
+#endif
     if (file != NULL) {
         Shape* shape = (Shape*)((u8*)file + file->firstShape);
         // The pixels (0x10 bytes in) must be 32-byte aligned.
-        if (((u32)shape & 0x10) == 0x10) {
+        if (((u32)PTR_TO_ADDR(shape) & 0x10) == 0x10) {
             u8* palette;
             if (shape->palette == 0) {
                 palette = NULL;
             } else {
                 palette = (u8*)shape + shape->palette;
-                u8 type = *palette;
+                u8 type = SHAPE_TYPE(palette);
                 if (type != 0x20 && type != 0x21 && (u8)(type - 0x30) > 1) {
                     if (type != 0x32) {
                         palette = NULL;
@@ -442,6 +451,50 @@ static inline void InitMaterial(CMSHMatBin* material, int base) {
     }
 }
 
+#ifdef FRONTLINE_NATIVE
+// Natively a CMSHMatBin doesn't fit in the file's 0x70-byte record, so the
+// materials are separate objects built from the records; chunks that point at
+// a record are pointed at its object after relocation.
+struct NativeMaterials {
+    u32 records;  // address of the first record
+    int count;
+    CMSHMatBin* objects;
+};
+static NativeMaterials s_nativeOpaque, s_nativeAlpha;
+
+static CMSHMatBin* NativeMaterialFor(PTR32(CMSHMatBin) record) {
+    const NativeMaterials* sets[2] = {&s_nativeOpaque, &s_nativeAlpha};
+    for (int s = 0; s < 2; s++) {
+        u32 offset = record.addr() - sets[s]->records;
+        if (offset < (u32)sets[s]->count * sizeof(MSHMaterialRecord)) {
+            return &sets[s]->objects[offset / sizeof(MSHMaterialRecord)];
+        }
+    }
+    return record;
+}
+
+// Builds the materials and links them as siblings; returns the array.
+static CMSHMatBin* InitMaterials(PTR32(CMSHMatBin) records, int count, NativeMaterials& set, int base) {
+    set.records = records.addr();
+    set.count = count;
+    set.objects = count != 0 ? (CMSHMatBin*)operator new(count * sizeof(CMSHMatBin)) : NULL;
+    CMSHMatBin* prev = NULL;
+    for (int i = 0; i < count; i++) {
+        const MSHMaterialRecord* record = (const MSHMaterialRecord*)records.get() + i;
+        CMSHMatBin* material = new (&set.objects[i]) CMSHMatBin;
+        material->m_flags = record->m_flags;
+        material->m_shape =
+            record->m_shape.addr() != 0 ? ADDR_TO_PTR(ShapeFile, record->m_shape.addr() + base) : NULL;
+        InitMaterial(material, base);
+        if (prev != NULL) {
+            prev->m_pNext = material;
+        }
+        material->m_pPrev = prev;
+        prev = material;
+    }
+    return set.objects;
+}
+#else
 // Builds the materials and links them as siblings; returns the last.
 static inline CMSHMatBin* InitMaterials(CMSHMatBin* materials, int count, int base) {
     CMSHMatBin* prev = NULL;
@@ -459,6 +512,7 @@ static inline CMSHMatBin* InitMaterials(CMSHMatBin* materials, int count, int ba
     }
     return prev;
 }
+#endif
 
 // Relocates a display list and writes its array setup commands.
 static inline void InitDisplayList(MSHDisplayList* list, int base) {
@@ -471,32 +525,32 @@ static inline void InitDisplayList(MSHDisplayList* list, int base) {
     // CP array bases (physical) and strides: position, normal, color, tex0.
     cmd[0x00] = 8;
     cmd[0x01] = 0xA0;
-    *(u32*)(cmd + 0x02) = (u32)list->m_positions & 0x3FFFFFFF;
+    GX_STORE32(cmd + 0x02, (u32)PTR_TO_ADDR(list->m_positions) & 0x3FFFFFFF);
     cmd[0x06] = 8;
     cmd[0x07] = 0xB0;
-    *(u32*)(cmd + 0x08) = 12;
+    GX_STORE32(cmd + 0x08, 12);
     cmd[0x0C] = 8;
     cmd[0x0D] = 0xA1;
-    *(u32*)(cmd + 0x0E) = (u32)list->m_normals & 0x3FFFFFFF;
+    GX_STORE32(cmd + 0x0E, (u32)PTR_TO_ADDR(list->m_normals) & 0x3FFFFFFF);
     cmd[0x12] = 8;
     cmd[0x13] = 0xB1;
-    *(u32*)(cmd + 0x14) = 3;
+    GX_STORE32(cmd + 0x14, 3);
     cmd[0x18] = 8;
     cmd[0x19] = 0xA2;
-    *(u32*)(cmd + 0x1A) = (u32)list->m_colors & 0x3FFFFFFF;
+    GX_STORE32(cmd + 0x1A, (u32)PTR_TO_ADDR(list->m_colors) & 0x3FFFFFFF);
     cmd[0x1E] = 8;
     cmd[0x1F] = 0xB2;
-    *(u32*)(cmd + 0x20) = 4;
+    GX_STORE32(cmd + 0x20, 4);
     cmd[0x24] = 8;
     cmd[0x25] = 0xA4;
-    *(u32*)(cmd + 0x26) = (u32)list->m_texCoords & 0x3FFFFFFF;
+    GX_STORE32(cmd + 0x26, (u32)PTR_TO_ADDR(list->m_texCoords) & 0x3FFFFFFF);
     cmd[0x2A] = 8;
     cmd[0x2B] = 0xB4;
-    *(u32*)(cmd + 0x2C) = 8;
+    GX_STORE32(cmd + 0x2C, 8);
     // Then the triangles (a strip or a list) of m_size vertices.
     cmd[0x30] = 0;
     cmd[0x31] = (list->m_flags & 4) ? 0x98 : 0x90;
-    *(u16*)(cmd + 0x32) = list->m_size;
+    GX_STORE16(cmd + 0x32, list->m_size);
     int indexSize = 8;
     if (list->m_flags & 1) {
         indexSize = 4;
@@ -512,18 +566,29 @@ static inline void InitDisplayList(MSHDisplayList* list, int base) {
 // Relocates the mesh file, builds its materials and links them into the
 // ucode bins.
 void CStaticMesh::Init() {
-    int base = (int)m_pData;
+#ifdef FRONTLINE_NATIVE
+    StaticMeshFromBigEndian(m_pData);
+#endif
+    int base = (int)PTR_TO_ADDR(m_pData);
     offsetPtr(m_pData->m_opaque, base);
     offsetPtr(m_pData->m_alpha, base);
     offsetPtr(m_pData->m_chunks, base);
     offsetPtr(m_pData->m_nodes, base);
     offsetPtr(m_pData->m_hardPoints, base);
+#ifdef FRONTLINE_NATIVE
+    m_pData->m_opaque = InitMaterials(m_pData->m_opaque, m_pData->m_numOpaque, s_nativeOpaque, base);
+    m_pData->m_alpha = InitMaterials(m_pData->m_alpha, m_pData->m_numAlpha, s_nativeAlpha, base);
+#else
     InitMaterials(m_pData->m_opaque, m_pData->m_numOpaque, base);
     InitMaterials(m_pData->m_alpha, m_pData->m_numAlpha, base);
+#endif
     MSHChunk* chunk = m_pData->m_chunks;
     for (int i = 0; i < m_pData->m_numChunks; i++) {
         offsetPtr(chunk->m_node, base);
         offsetPtr(chunk->m_material, base);
+#ifdef FRONTLINE_NATIVE
+        chunk->m_material = NativeMaterialFor(chunk->m_material);
+#endif
         offsetPtr(chunk->m_list, base);
         if (chunk->m_list != NULL) {
             InitDisplayList(chunk->m_list, base);

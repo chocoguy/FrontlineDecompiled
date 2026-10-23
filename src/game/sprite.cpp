@@ -52,8 +52,14 @@ CSprite::CSprite(const char* name, CSprite::ESpriteLoadType type, ERenderPriorit
         DebugMsg("CSprite::CSprite(%s):  TLT_LoadFile... FAILED!!!\n", name);
         return;
     }
+#ifdef FRONTLINE_NATIVE
+    // "SHPN": already swapped to little-endian (see ShapeFileFromBigEndian).
+    if (file->magic[0] != 'S' || file->magic[1] != 'H' || file->magic[2] != 'P' ||
+        (file->magic[3] != 'G' && file->magic[3] != 'N')) {
+#else
     if (file->magic[0] != 'S' || file->magic[1] != 'H' || file->magic[2] != 'P' ||
         file->magic[3] != 'G') {
+#endif
         DebugMsg("CCSprite::CCSprite():  File is not a GAMECUBE Shape, type = %s\n", file);
         return;
     }

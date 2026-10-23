@@ -53,31 +53,34 @@ struct UISListEntry_t {
 // A group of linked controls and plugin objects, shown while *enable is
 // non-zero.
 struct UISControlList_t {
-    /* 0x0 */ u32* enable;
+    /* 0x0 */ PTR32(u32) enable;
     /* 0x4 */ u32 numEntries;
-    /* 0x8 */ UISListEntry_t* entries;
+    /* 0x8 */ PTR32(UISListEntry_t) entries;
 };
+FILE_SIZE_ASSERT(UISControlList_t, 0xC);
 
 // size 0x14
 struct UISControl_t {
-    /* 0x00 */ UISControlInfo_t* info;
+    /* 0x00 */ PTR32(UISControlInfo_t) info;
     /* 0x04 */ u32 numLists;
-    /* 0x08 */ UISControlList_t** lists;
+    /* 0x08 */ PTR32(PTR32(UISControlList_t)) lists;
     /* 0x0C */ u32 numEvents;
-    /* 0x10 */ UISEventEntry_t* events;
+    /* 0x10 */ PTR32(UISEventEntry_t) events;
 };
+FILE_SIZE_ASSERT(UISControl_t, 0x14);
 
 // A loaded screen file.
 struct UISScrData_t {
     /* 0x0 */ u32 numControls;
-    /* 0x4 */ UISControl_t* controls;
+    /* 0x4 */ PTR32(UISControl_t) controls;
     /* 0x08 */ u32 numStrings;
-    /* 0x0C */ struct UISString_t* strings;
+    /* 0x0C */ PTR32(struct UISString_t) strings;
     /* 0x10 */ u32 numStringRefs;
-    /* 0x14 */ u32* stringRefs;  // offsets of words holding a string index
+    /* 0x14 */ PTR32(u32) stringRefs;  // offsets of words holding a string index
     /* 0x18 */ u32 numObjects;   // screen-level plugin objects
-    /* 0x1C */ struct UISListEntry_t* objects;
+    /* 0x1C */ PTR32(struct UISListEntry_t) objects;
 };
+FILE_SIZE_ASSERT(UISScrData_t, 0x20);
 
 // size 0xC
 struct UISScreen_t {
@@ -97,8 +100,9 @@ struct UISParam_t {
 struct UISString_t {
     /* 0x0 */ u32 unk_0x0;
     /* 0x4 */ u32 maxLength;
-    /* 0x8 */ char* text;
+    /* 0x8 */ PTR32(char) text;
 };
+FILE_SIZE_ASSERT(UISString_t, 0xC);
 
 // UISRateFnc_t::state
 #define RATEFNC_NEW 0       // loaded this tick

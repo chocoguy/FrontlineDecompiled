@@ -63,6 +63,7 @@ int CTankObject::BeginUpdate(float dt) {
         }
     }
     m_ai.PreUpdate();
+    END_RETURN_NOTHING
 }
 
 // Every 60 frames the A* path nodes under the tank are disabled afresh.

@@ -120,21 +120,21 @@ void CBulletFactory::LoadBulletParameters() {
     LevelFileContentsStruct_* level = TLT_FindNextResourceByType((TLTResourceID)0xB, NULL);
     u8* file;
     if (g_bInMultiplayerMode) {
-        file = (u8*)TLT_LoadFileFromLevelBigFile((char*)level->fields[65].value, NULL);
+        file = (u8*)TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(char, level->fields[65].value), NULL);
     } else {
         switch (g_Shell.Get_currentDifficulty()) {
         case 1:
-            file = (u8*)TLT_LoadFileFromLevelBigFile((char*)level->fields[4].value, NULL);
+            file = (u8*)TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(char, level->fields[4].value), NULL);
             break;
         case 2:
-            file = (u8*)TLT_LoadFileFromLevelBigFile((char*)level->fields[5].value, NULL);
+            file = (u8*)TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(char, level->fields[5].value), NULL);
             break;
         case 3:
-            file = (u8*)TLT_LoadFileFromLevelBigFile((char*)level->fields[6].value, NULL);
+            file = (u8*)TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(char, level->fields[6].value), NULL);
             break;
         default:
             DebugMsg("Unknown difficulty level.  Assuming Level TE\n");
-            file = (u8*)TLT_LoadFileFromLevelBigFile((char*)level->fields[4].value, NULL);
+            file = (u8*)TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(char, level->fields[4].value), NULL);
             break;
         }
     }

@@ -29,7 +29,11 @@ void RCMP::AV_PLAYER::GetRCMPChunk(DECODER* decoder, CHUNK** out) {
         u8* raw = (u8*)STREAM_get(stream);
         SYNCTASK_run(0);
         if (raw != NULL) {
+#ifdef FRONTLINE_NATIVE
+            u32 type = __builtin_bswap32(*(u32*)raw);  // the chunk's tag is big-endian ('MPCh')
+#else
             u32 type = *(u32*)raw;
+#endif
             if (MPC_CODEC_is_chunk_for_codec(type)) {
                 kind = 1;
             }
@@ -59,6 +63,9 @@ void RCMP::AV_PLAYER::GetRCMPChunk(DECODER* decoder, CHUNK** out) {
         }
         if (STREAM_isendofstream(stream)) {
             return;
+        }
+        if (raw == NULL) {
+            SPIN_WAIT();  // for the stream's disc reads
         }
     }
 }

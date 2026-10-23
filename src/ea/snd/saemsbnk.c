@@ -40,7 +40,7 @@ void SNDAEMSI_updateplayerbank(AEMSCOMPDYNAMICPLAYER* d) {
         int gate = d->in[7];
         if (gate == 1) {
             if (d->lastGate == 0) {
-                AEMSPLAYERTABLE* table = (AEMSPLAYERTABLE*)comp->p[0];
+                AEMSPLAYERTABLE* table = ADDR_TO_PTR(AEMSPLAYERTABLE, comp->p[0]);
                 int index = d->in[6];
                 SNDPLAYOPTS opts;
                 if (index >= table->count) {
@@ -64,11 +64,11 @@ void SNDAEMSI_updateplayerbank(AEMSCOMPDYNAMICPLAYER* d) {
                 opts.highpass = d->highpass;
                 d->timemult = AEMS_clampu16(d->in[1]);
                 opts.timemult = d->timemult;
-                if (((MODULEBANK*)comp->p[1])->version >= 9) {
+                if ((ADDR_TO_PTR(MODULEBANK, comp->p[1]))->version >= 9) {
                     d->dry = AEMS_clamp7fff(d->in[10]);
                     opts.drylevel = d->dry >> 8;
                 }
-                bank = (MODULEBANK*)comp->p[1];
+                bank = ADDR_TO_PTR(MODULEBANK, comp->p[1]);
                 d->handle = SNDBANK_play(bank->rt->sfxBank, d->entry & 0x3FFF, &opts);
                 if (d->handle >= 0) {
                     d->out = 1;
@@ -157,7 +157,7 @@ void SNDAEMSI_updateplayerbank(AEMSCOMPDYNAMICPLAYER* d) {
             voice->timeMult = d->timemult;
             SNDPLATFORM_timemult(v, d->timemult);
         }
-        if (((MODULEBANK*)comp->p[1])->version >= 9 && d->in[10] != d->dry) {
+        if ((ADDR_TO_PTR(MODULEBANK, comp->p[1]))->version >= 9 && d->in[10] != d->dry) {
             d->dry = AEMS_clamp7fff(d->in[10]);
             SNDCTRL_drylevel(d->handle, (s8)(d->dry >> 8));
         }

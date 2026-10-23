@@ -32,6 +32,8 @@ struct MOH_animatedLight_Struct;
 #define ANIMLIGHT_PINGPONG 2
 
 // An animated light from the level's property data (0x7C bytes).
+typedef u8 AnimLightColor[4];
+
 struct MOH_animatedLight_Struct {
     /* 0x00 */ u8 unk_0x0[0x10];
     /* 0x10 */ f32 pos[3];
@@ -42,9 +44,10 @@ struct MOH_animatedLight_Struct {
     /* 0x4C */ u8 unk_0x4C[0x24];
     /* 0x70 */ u8 mode;  // ANIMLIGHT_*
     /* 0x72 */ s16 numFrames;
-    /* 0x74 */ u8 (*colors)[4];  // per frame rgba
-    /* 0x78 */ f32* intensities;  // per frame
+    /* 0x74 */ PTR32(AnimLightColor) colors;  // per frame rgba
+    /* 0x78 */ PTR32(f32) intensities;  // per frame
 };
+FILE_SIZE_ASSERT(MOH_animatedLight_Struct, 0x7C);
 
 // A dynamic point light in the scene (muzzle flashes, lamps, fires).
 // size 0xD0 (16-aligned); vtable 0x8018436C
@@ -82,6 +85,18 @@ public:
         GXInitLightSpot(&m_lightObj, 57.295776f * m_spotAngle, 2);
     }
 
+#ifdef FRONTLINE_NATIVE
+    // The scene's words (extent links, then the light list links), pointers
+    // natively so they sit where CScene writes them, as in the other nodes.
+    void* field_0xC;
+    void* field_0x10;
+    void* field_0x14;
+    void* field_0x18;
+    u32 field_0x1C;
+    u32 field_0x20;
+    void* field_0x24;
+    void* field_0x28;
+#else
     /* 0xC */ u32 field_0xC;
     /* 0x10 */ u32 field_0x10;
     /* 0x14 */ u32 field_0x14;
@@ -90,6 +105,7 @@ public:
     /* 0x20 */ u32 field_0x20;
     /* 0x24 */ u32 field_0x24;
     /* 0x28 */ u32 field_0x28;
+#endif
     /* 0x2C */ GXLightObj m_lightObj;
     /* 0x70 */ CMatrix m_localToWorld;
     /* 0xB0 */ f32 m_color[4];  // rgba; animated lights use 0..255

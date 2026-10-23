@@ -286,10 +286,10 @@ int BSProcessMessages(int max) {
                 BSMachineThread_struct* t = reg->m_thread;
                 t->m_sp = g_piStackTop + 2;
                 t->m_frame = g_piStackTop + 2;
-                t->m_sp[0] = (u32)q->m_data;
-                t->m_sp[1] = (u32)q->m_sender;
-                t->m_sp[2] = (u32)q->m_target;
-                t->m_sp[3] = (u32)q->m_trigger;
+                t->m_sp[0] = (u32)PTR_TO_ADDR(q->m_data);
+                t->m_sp[1] = (u32)PTR_TO_ADDR(q->m_sender);
+                t->m_sp[2] = (u32)PTR_TO_ADDR(q->m_target);
+                t->m_sp[3] = (u32)PTR_TO_ADDR(q->m_trigger);
                 t->m_sp += 3;
                 t->m_pc = BS_CODE_ADDRESS(t->m_code, (u32)reg->m_entry->m_address);
                 BSExecuteThread(reg->m_object, reg->m_thread);

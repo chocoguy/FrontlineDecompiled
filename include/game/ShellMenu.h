@@ -344,14 +344,17 @@ public:
         return index < m_messages.m_count ? m_messages.m_entries[index].m_string : NULL;
     }
 };
-OFFSET_ASSERT(CShellMenu, m_careerStats, 0x2C);
-OFFSET_ASSERT(CShellMenu, m_levelStats, 0x120);
-OFFSET_ASSERT(CShellMenu, m_customButtons, 0x220);
-OFFSET_ASSERT(CShellMenu, m_finishedLevels, 0x258);
-OFFSET_ASSERT(CShellMenu, field_0x13F8, 0x13F8);
-OFFSET_ASSERT(CShellMenu, m_mpEnabled, 0x1410);
-OFFSET_ASSERT(CShellMenu, m_players, 0x144C);
-OFFSET_ASSERT(CShellMenu, m_mpStats, 0x14CC);
+// The saved part (SHELL_SAVE_SIZE bytes: the memory card and the loader block)
+// is plain data with the same layout on both builds.
+FILE_OFFSET_ASSERT(CShellMenu, m_careerStats, 0x2C);
+FILE_OFFSET_ASSERT(CShellMenu, m_levelStats, 0x120);
+FILE_OFFSET_ASSERT(CShellMenu, m_customButtons, 0x220);
+FILE_OFFSET_ASSERT(CShellMenu, m_finishedLevels, 0x258);
+FILE_OFFSET_ASSERT(CShellMenu, field_0x13F8, 0x13F8);
+FILE_OFFSET_ASSERT(CShellMenu, m_mpEnabled, 0x1410);
+FILE_OFFSET_ASSERT(CShellMenu, m_players, 0x144C);
+FILE_OFFSET_ASSERT(CShellMenu, m_mpStats, 0x14CC);
+FILE_OFFSET_ASSERT(CShellMenu, m_crc, 0x18DC);
 OFFSET_ASSERT(CShellMenu, m_studio, 0x18F0);
 OFFSET_ASSERT(CShellMenu, m_statsOut, 0x1914);
 OFFSET_ASSERT(CShellMenu, m_moviePlayTime, 0x1994);

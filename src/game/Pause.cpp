@@ -260,7 +260,7 @@ void Pause::PauseInit() {
     CScreen* screen = CScreen::GetCurrent();
     if (screen != NULL) {
         LevelFileContentsStruct_* level = TLT_FindNextResourceByType((TLTResourceID)0xB, NULL);
-        void* fontData = TLT_LoadFileFromLevelBigFile((const char*)level->fields[44].value, NULL);
+        void* fontData = TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(const char, level->fields[44].value), NULL);
         m_pFont = new CFont((const char*)fontData, (ERenderPriority)0x6F);
         m_pFont->SetColor(CColor(0x3F, 0x3F, 0x3F, 0x80));
         m_pFont->SetScale(1.0f, 1.0f);

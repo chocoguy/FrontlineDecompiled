@@ -7,6 +7,9 @@
 // Reverse the bytes of a 4-byte value in place.
 template <typename T>
 inline void EndianSwap(T& value) {
+#ifdef FRONTLINE_NATIVE
+    return;  // little-endian data on a little-endian CPU: nothing to swap
+#endif
     T tmp = value;
     u8* b = (u8*)&tmp;
     u8 t = b[0];
@@ -20,6 +23,9 @@ inline void EndianSwap(T& value) {
 
 // 2-byte values.
 inline void EndianSwap(u16& value) {
+#ifdef FRONTLINE_NATIVE
+    return;  // little-endian data on a little-endian CPU: nothing to swap
+#endif
     u16 tmp = value;
     u8* b = (u8*)&tmp;
     u8 t = b[0];
@@ -29,6 +35,9 @@ inline void EndianSwap(u16& value) {
 }
 
 inline void EndianSwap(s16& value) {
+#ifdef FRONTLINE_NATIVE
+    return;  // little-endian data on a little-endian CPU: nothing to swap
+#endif
     s16 tmp = value;
     u8* b = (u8*)&tmp;
     u8 t = b[0];

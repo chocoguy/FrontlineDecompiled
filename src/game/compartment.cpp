@@ -20,6 +20,7 @@
 #include "game/renderlist.h"
 #include "game/matrix.h"
 #include "game/shape.h"
+#include "game/gxstore.h"
 #include "game/texture.h"
 #include "game/surfacetype.h"
 #include "game/gameconfig.h"
@@ -116,11 +117,11 @@ static u32 s_endOfChunks = 0;
 
 void CCPTMatBin::Link(CDmaTag* tag, CDmaPacket&) {
     for (; tag != NULL; tag = tag->m_next) {
-        CPTChunk** data = (CPTChunk**)tag->m_data;
+        PTR32(CPTChunk)* data = (PTR32(CPTChunk)*)tag->m_data;
         int i = 0;
         CPTChunk* chunk = data[i++];
         while (chunk != NULL) {
-            if ((u32)chunk == 1 || (u32)chunk == 2) {
+            if ((u32)PTR_TO_ADDR(chunk) == 1 || (u32)PTR_TO_ADDR(chunk) == 2) {
                 // Opaque (1) or alpha (2) state for the chunks that follow.
                 GXLoadPosMtxImm(g_WorldToCameraGCMatrix, 0);
                 GXClearVtxDesc();
@@ -146,7 +147,7 @@ void CCPTMatBin::Link(CDmaTag* tag, CDmaPacket&) {
                 fogColor.a = 0xFF;
                 GXSetFog(g_GCFogType[g_pFog->m_enabled], g_pFog->m_start, g_pFog->m_range, g_NearPlane, g_FarPlane,
                          fogColor);
-                if ((u32)chunk == 1) {
+                if ((u32)PTR_TO_ADDR(chunk) == 1) {
                     GXSetBlendMode(1, 1, 0, 5);
                     GXSetZCompLoc(0);
                     GXSetAlphaCompare(4, 0xA0, 0, 7, 0);
@@ -255,7 +256,7 @@ int CCPTMatBin::Render(CDmaPacket& packet, void*) {
             packet.m_ptr += 4;
             g_CurrState = 0;
         }
-        *(CPTChunk**)packet.m_ptr = m_chunks;
+        *(PTR32(CPTChunk)*)packet.m_ptr = m_chunks;
         packet.m_ptr += 4;
         CPTChunk* chunk = m_chunks;
         m_chunks = chunk->m_next;
@@ -639,9 +640,9 @@ void CCompartment::LoadShared() {
     if (cpt != NULL) {
         LevelFileContentsStruct_* cdb = TLT_FindNextResourceByType((TLTResourceID)2, NULL);
         if (cdb != NULL) {
-            const char* cdbName = (const char*)cdb->fields[0].value;
+            const char* cdbName = ADDR_TO_PTR(const char, cdb->fields[0].value);
             g_GlobalCpt.m_header =
-                (CPTHeader*)TLT_LoadFileFromLevelBigFile((const char*)cpt->fields[0].value, &g_SharedCompartmentSize);
+                (CPTHeader*)TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(const char, cpt->fields[0].value), &g_SharedCompartmentSize);
             g_GlobalCpt.m_cdb = (CDB*)TLT_LoadFileFromLevelBigFile(cdbName, NULL);
             g_GlobalCpt.Init();
             g_GlobalCpt.m_cdbObject.Init(g_GlobalCpt.m_cdb);
@@ -712,19 +713,24 @@ extern "C" CVector3* __ct__8CVector3FRC8CVector3(CVector3* self, const CVector3*
 
 // Builds a material bin in place and sets up its texture.
 static inline void InitMaterial(CCPTMatBin* material, int base) {
+#ifdef FRONTLINE_NATIVE
+    // Built and relocated by InitMaterials.
+    ShapeFile* file = ShapeFileFromBigEndian(material->m_shape);
+#else
     new (material) CCPTMatBin;
     offsetPtr(material->m_shape, base);
     ShapeFile* file = material->m_shape;
+#endif
     if (file != NULL) {
         Shape* shape = (Shape*)((u8*)file + file->firstShape);
         // The pixels (0x10 bytes in) must be 32-byte aligned.
-        if (((u32)shape & 0x10) == 0x10) {
+        if (((u32)PTR_TO_ADDR(shape) & 0x10) == 0x10) {
             u8* palette;
             if (shape->palette == 0) {
                 palette = NULL;
             } else {
                 palette = (u8*)shape + shape->palette;
-                u8 type = *palette;
+                u8 type = SHAPE_TYPE(palette);
                 if (type != 0x20 && type != 0x21 && (u8)(type - 0x30) > 1) {
                     if (type != 0x32) {
                         palette = NULL;
@@ -762,6 +768,54 @@ static inline void InitMaterial(CCPTMatBin* material, int base) {
     }
 }
 
+#ifdef FRONTLINE_NATIVE
+// Natively a CCPTMatBin doesn't fit in the file's 0x70-byte record, so the
+// materials are separate objects built from the records; references to a
+// record (chunks, texture swaps) are pointed at its object after relocation.
+struct NativeMaterials {
+    u32 records;  // address of the first record
+    int count;
+    CCPTMatBin* objects;
+};
+static NativeMaterials s_nativeOpaque, s_nativeAlpha;
+
+static CCPTMatBin* NativeMaterialFor(PTR32(CCPTMatBin) record) {
+    const NativeMaterials* sets[2] = {&s_nativeOpaque, &s_nativeAlpha};
+    for (int s = 0; s < 2; s++) {
+        u32 offset = record.addr() - sets[s]->records;
+        if (offset < (u32)sets[s]->count * sizeof(CPTMaterialRecord)) {
+            return &sets[s]->objects[offset / sizeof(CPTMaterialRecord)];
+        }
+    }
+    return record;  // NULL, or already an object
+}
+
+static CCPTMatBin* InitMaterials(PTR32(CCPTMatBin) records, int count, bool alpha, int base) {
+    NativeMaterials& set = alpha ? s_nativeAlpha : s_nativeOpaque;
+    set.records = records.addr();
+    set.count = count;
+    set.objects = count != 0 ? (CCPTMatBin*)operator new(count * sizeof(CCPTMatBin)) : NULL;
+    CCPTMatBin* prev = NULL;
+    for (int i = 0; i < count; i++) {
+        const CPTMaterialRecord* record = (const CPTMaterialRecord*)records.get() + i;
+        CCPTMatBin* material = new (&set.objects[i]) CCPTMatBin;
+        material->m_flags = record->m_flags;
+        material->m_shape =
+            record->m_shape.addr() != 0 ? ADDR_TO_PTR(ShapeFile, record->m_shape.addr() + base) : NULL;
+        InitMaterial(material, base);
+        if (prev != NULL) {
+            prev->m_pNext = material;
+        }
+        material->m_pPrev = prev;
+        prev = material;
+        if (material->m_flags & CPTMAT_SHARED) {
+            CPTHeader* shared = g_GlobalCpt.m_header;
+            material->m_shared = (alpha ? shared->m_alpha : shared->m_opaque) + record->m_shared;
+        }
+    }
+    return set.objects;
+}
+#else
 // Links the materials as siblings under the ucode bin and resolves shared
 // ones to the shared compartment's.
 static inline void InitMaterials(CCPTMatBin* materials, int count, bool alpha, int base) {
@@ -778,11 +832,12 @@ static inline void InitMaterials(CCPTMatBin* materials, int count, bool alpha, i
         prev = material;
         if (material->m_flags & CPTMAT_SHARED) {
             CPTHeader* shared = g_GlobalCpt.m_header;
-            material->m_shared = (alpha ? shared->m_alpha : shared->m_opaque) + (int)material->m_shared;
+            material->m_shared = (alpha ? shared->m_alpha : shared->m_opaque) + (int)PTR_TO_ADDR(material->m_shared);
         }
         material++;
     }
 }
+#endif
 
 // Relocates a display list and writes its array setup commands.
 static inline void InitDisplayList(CPTDisplayList* list, int base) {
@@ -801,32 +856,32 @@ static inline void InitDisplayList(CPTDisplayList* list, int base) {
     // CP array bases (physical) and strides: position, normal, color, tex0.
     cmd[0x00] = 8;
     cmd[0x01] = 0xA0;
-    *(u32*)(cmd + 0x02) = (u32)list->m_positions & 0x3FFFFFFF;
+    GX_STORE32(cmd + 0x02, (u32)PTR_TO_ADDR(list->m_positions) & 0x3FFFFFFF);
     cmd[0x06] = 8;
     cmd[0x07] = 0xB0;
-    *(u32*)(cmd + 0x08) = 12;
+    GX_STORE32(cmd + 0x08, 12);
     cmd[0x0C] = 8;
     cmd[0x0D] = 0xA1;
-    *(u32*)(cmd + 0x0E) = (u32)list->m_normals & 0x3FFFFFFF;
+    GX_STORE32(cmd + 0x0E, (u32)PTR_TO_ADDR(list->m_normals) & 0x3FFFFFFF);
     cmd[0x12] = 8;
     cmd[0x13] = 0xB1;
-    *(u32*)(cmd + 0x14) = 3;
+    GX_STORE32(cmd + 0x14, 3);
     cmd[0x18] = 8;
     cmd[0x19] = 0xA2;
-    *(u32*)(cmd + 0x1A) = (u32)list->m_colors & 0x3FFFFFFF;
+    GX_STORE32(cmd + 0x1A, (u32)PTR_TO_ADDR(list->m_colors) & 0x3FFFFFFF);
     cmd[0x1E] = 8;
     cmd[0x1F] = 0xB2;
-    *(u32*)(cmd + 0x20) = 4;
+    GX_STORE32(cmd + 0x20, 4);
     cmd[0x24] = 8;
     cmd[0x25] = 0xA4;
-    *(u32*)(cmd + 0x26) = (u32)list->m_texCoords & 0x3FFFFFFF;
+    GX_STORE32(cmd + 0x26, (u32)PTR_TO_ADDR(list->m_texCoords) & 0x3FFFFFFF);
     cmd[0x2A] = 8;
     cmd[0x2B] = 0xB4;
-    *(u32*)(cmd + 0x2C) = 8;
+    GX_STORE32(cmd + 0x2C, 8);
     // Then a triangle strip of m_size vertices.
     cmd[0x30] = 0;
     cmd[0x31] = 0x98;
-    *(u16*)(cmd + 0x32) = list->m_size;
+    GX_STORE16(cmd + 0x32, list->m_size);
     u16 size = list->m_size * indexSize + 0x34;
     if (size & 0x1F) {
         size += 0x20 - (size & 0x1F);
@@ -838,6 +893,9 @@ static inline void InitDisplayList(CPTDisplayList* list, int base) {
 static inline void InitChunk(CPTChunk* chunk, int base) {
     offsetPtr(chunk->m_node, base);
     offsetPtr(chunk->m_material, base);
+#ifdef FRONTLINE_NATIVE
+    chunk->m_material = NativeMaterialFor(chunk->m_material);
+#endif
     offsetPtr(chunk->m_list, base);
     if (chunk->m_list != NULL) {
         InitDisplayList(chunk->m_list, base);
@@ -850,19 +908,30 @@ static inline void InitChunk(CPTChunk* chunk, int base) {
 // Relocates the compartment file, builds its materials and links them
 // into the ucode bins.
 void CCompartment::Init() {
-    int base = (int)m_header;
+#ifdef FRONTLINE_NATIVE
+    CPTFromBigEndian(m_header);
+#endif
+    int base = (int)PTR_TO_ADDR(m_header);
     offsetPtr(m_header->m_opaque, base);
     offsetPtr(m_header->m_alpha, base);
     offsetPtr(m_header->m_chunks, base);
     offsetPtr(m_header->m_nodes, base);
     offsetPtr(m_header->m_texSwaps, base);
+#ifdef FRONTLINE_NATIVE
+    m_header->m_opaque = InitMaterials(m_header->m_opaque, m_header->m_numOpaque, false, base);
+    m_header->m_alpha = InitMaterials(m_header->m_alpha, m_header->m_numAlpha, true, base);
+#else
     InitMaterials(m_header->m_opaque, m_header->m_numOpaque, false, base);
     InitMaterials(m_header->m_alpha, m_header->m_numAlpha, true, base);
+#endif
 
     CPTChunk* chunk = m_header->m_chunks;
     for (int i = 0; i < m_header->m_numChunks; i++) {
         offsetPtr(chunk->m_node, base);
         offsetPtr(chunk->m_material, base);
+#ifdef FRONTLINE_NATIVE
+        chunk->m_material = NativeMaterialFor(chunk->m_material);
+#endif
         offsetPtr(chunk->m_list, base);
         if (chunk->m_list != NULL) {
             InitDisplayList(chunk->m_list, base);
@@ -884,6 +953,9 @@ void CCompartment::Init() {
             InitChunk(swap, base);
             for (u32 k = 0; k < swap->m_numFrames; k++) {
                 offsetPtr(swap->m_frames[k], base);
+#ifdef FRONTLINE_NATIVE
+                swap->m_frames[k] = NativeMaterialFor(swap->m_frames[k]);
+#endif
                 if (swap->m_frames[k]->m_flags & CPTMAT_SHARED) {
                     swap->m_frames[k] = swap->m_frames[k]->m_shared;
                 }

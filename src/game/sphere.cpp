@@ -32,7 +32,7 @@ void CVolSphere::operator=(const CVolSphere& other) {
 }
 
 int CVolSphere::Create() const {
-    return (int)new CVolSphere;
+    return (int)PTR_TO_ADDR(new CVolSphere);
 }
 
 void CVolSphere::TransformedCopy(const IVolume& volume, const CMatrix& m) {

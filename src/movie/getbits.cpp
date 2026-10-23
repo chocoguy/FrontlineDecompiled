@@ -26,7 +26,7 @@ void Flush_Buffer32() {
 int Get_Bits(int n) {
     unsigned int bfr = MPDld->Bfr;
     MPDld->Bfr = bfr << n;
-    unsigned int val = bfr >> (32 - n);
+    unsigned int val = TOP_BITS(bfr, n);
     Fill_Buffer(MPDld->Incnt - n);
     return val;
 }
@@ -45,7 +45,7 @@ int Get_Bits1() {
 }
 
 int Show_Bits(int n) {
-    return MPDld->Bfr >> (32 - n);
+    return TOP_BITS(MPDld->Bfr, n);
 }
 
 void Initialize_Buffer(unsigned char* buffer) {

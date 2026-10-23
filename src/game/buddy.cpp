@@ -102,7 +102,7 @@ static inline void GiveBuddyOrders(BuddyInfo* b) {
     if (b->m_checkpoint < g_player_checkpoint) {
         if (b->m_moving == 0) {
             int next = b->m_checkpoint + 1;
-            BSObjectTriggerEvent(BuddyScript(b->m_soldier), BUDDYEVT_FOLLOW_PATH, (void*)(b->m_pathBase + next),
+            BSObjectTriggerEvent(BuddyScript(b->m_soldier), BUDDYEVT_FOLLOW_PATH, ADDR_TO_PTR(void, (b->m_pathBase + next)),
                                  g_pBSObject, false);
             b->m_moving = 1;
             BuddyDesc d;
@@ -211,7 +211,7 @@ void BIFunc_GetInitialBuddyOrders(int** sp, void* self) {
 // (script): frees its slot (the first ready buddy takes it over), or takes
 // it off the ready list.
 void BIFunc_BuddyDied(int** sp, void*) {
-    BSObject* script = (BSObject*)BIFArg(sp, 0);
+    BSObject* script = ADDR_TO_PTR(BSObject, BIFArg(sp, 0));
     CSoldierObject* soldier = SoldierOf(script);
     if (soldier != NULL) {
         bool found = false;
@@ -249,7 +249,7 @@ void BIFunc_BuddyDied(int** sp, void*) {
 // (script, checkpoint): the buddy reached `checkpoint`; returns whether it
 // was sent on.
 void BIFunc_UpdateBuddyProgress(int** sp, void*) {
-    BSObject* script = (BSObject*)BIFArg(sp, 0);
+    BSObject* script = ADDR_TO_PTR(BSObject, BIFArg(sp, 0));
     int checkpoint = BIFArg(sp, 1);
     CSoldierObject* soldier = SoldierOf(script);
     bool found = false;

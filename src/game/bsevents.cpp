@@ -80,7 +80,7 @@ static inline void DecrementBlock(void* data) {
 // the state declaring it; a barrier or masking entry stops the search.
 static inline u16 FindDeclaredState(u16 event, BSMachineThread_struct* thread,
                                     BSCode_EventHandlerEntry_struct** found) {
-    BSHandler_struct** handlers = thread->m_code->m_handlers;
+    PTR32(BSHandler_struct)* handlers = thread->m_code->m_handlers;
     u16 state = thread->m_state;
     while (state != 0xFFFF) {
         BSHandler_struct* handler = handlers[state];
@@ -133,8 +133,8 @@ static inline void RunEvent(BSEventRecord_struct* rec) {
             s32 address = entry->m_address;
             thread->m_sp = g_piStackTop + 3;
             thread->m_frame = g_piStackTop + 2;
-            thread->m_sp[-1] = (u32)rec->m_data;
-            thread->m_sp[0] = (u32)rec->m_sender;
+            thread->m_sp[-1] = (u32)PTR_TO_ADDR(rec->m_data);
+            thread->m_sp[0] = (u32)PTR_TO_ADDR(rec->m_sender);
             thread->m_pc = BS_CODE_ADDRESS(thread->m_code, address);
             BSExecuteThread(rec->m_object, rec->m_thread);
         }

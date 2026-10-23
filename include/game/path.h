@@ -28,8 +28,33 @@ struct PATHBRANCH {
 };
 
 // A node of the map. size 0xC + branches
+//
+// Natively each bitfield run is declared in reverse: CodeWarrior allocates
+// bits from the top of the unit, clang from the bottom (and the u16 units are
+// byte-swapped first; see PathMapFromBigEndian).
 struct PATHFINDNODE {
     /* 0x0 */ s16 wave;  // 1-based wave; 0 a marker, -1 a loop, -2 random
+#ifdef FRONTLINE_NATIVE
+    /* 0x2 */ s16 loops : 4;
+    /* 0x2 */ u16 eventNode : 1;  // entering it keeps the event's level
+    /* 0x2 */ u16 beat : 6;
+    /* 0x2 */ u16 track : 5;
+    /* 0x4 */ u8 remap;  // node remap list (0: none)
+    /* 0x5 */ u8 type : 3;  // 1: branch on a random level
+    /* 0x5 */ u8 numBranches : 5;
+    /* 0x6 */ u8 beatsPerBar : 4;
+    /* 0x6 */ u8 bars : 4;
+    /* 0x7 */ u8 beatStart : 4;  // first entry beat (1-based)
+    /* 0x7 */ u8 beatStep : 4;   // beats between entry points
+    u16 : 0;
+    /* 0x8 */ u16 fadeOut : 5;
+    /* 0x8 */ u16 fadeIn : 5;  // fade curve (1-based)
+    /* 0x8 */ u16 sync : 2;  // 1 on a beat, 2 at the end
+    /* 0x8 */ u16 beatUnit : 4;
+    u8 : 0;
+    /* 0xA */ u8 unk_bits : 7;
+    /* 0xA */ u8 alignBeat : 1;  // starts on the lead track's beat
+#else
     /* 0x2 */ u16 track : 5;
     /* 0x2 */ u16 beat : 6;
     /* 0x2 */ u16 eventNode : 1;  // entering it keeps the event's level
@@ -51,9 +76,11 @@ struct PATHFINDNODE {
     u8 : 0;
     /* 0xA */ u8 alignBeat : 1;  // starts on the lead track's beat
     /* 0xA */ u8 unk_bits : 7;
+#endif
     /* 0xB */ u8 unk_0xB;
     /* 0xC */ PATHBRANCH branches[1];
 };
+FILE_SIZE_ASSERT(PATHFINDNODE, 0x10);
 
 // The map file header.
 struct PATHMAP {
@@ -71,6 +98,21 @@ struct PATHMAP {
     /* 0x14 */ u8 unk_0x14[0x10];
     /* 0x24 */ s16 nodeOffsets[1];  // in words from the start of the map
 };
+
+// A fade curve (the map's fade table): the curve shape, run backwards when
+// `invert`, over `duration` ms. size 0x4
+typedef struct PATHFADE {
+#ifdef FRONTLINE_NATIVE
+    /* 0x0 */ u8 invert : 1;
+    /* 0x0 */ u8 type : 7;  // 1 linear, 2 quadratic, 3 1/x
+#else
+    /* 0x0 */ u8 type : 7;  // 1 linear, 2 quadratic, 3 1/x
+    /* 0x0 */ u8 invert : 1;
+#endif
+    /* 0x1 */ u8 unk_0x1;
+    /* 0x2 */ u16 duration;
+} PATHFADE;
+FILE_SIZE_ASSERT(PATHFADE, 0x4);
 
 // What an event does to a track (also a track's current/saved state).
 // size 0x4
@@ -137,6 +179,63 @@ struct PATHTRACK {
     /* 0xC4 */ char name[0x20];
     /* 0xE4 */ PATHREQUEST* requests;
 };
+
+#ifdef FRONTLINE_NATIVE
+#include "native/swap.h"
+
+// Map files are big-endian. Swaps a map in place, before PATH_addmapfile reads
+// it: the header, node offsets, nodes, event values, the offset tables, remap
+// lists, wave table and fade curves (the event table is bytes). Returns false
+// if it was already swapped (the 'PFDx' magic then reads correctly).
+inline bool PathMapFromBigEndian(PATHMAP* map) {
+    u8* base = (u8*)map;
+    if (base[0] != 'P' || base[1] != 'F' || base[2] != 'D' || base[3] != 'x') {
+        return false;
+    }
+    NativeSwapOnce once;
+    NativeSwap32(&map->magic);
+    NativeSwap16(&map->numNodes);
+    NativeSwap16s(map->nodeOffsets, map->numNodes);
+    int maxWave = 0, maxFade = 0, maxRemap = 0;
+    PATHFINDNODE* last = NULL;
+    for (int i = 0; i < map->numNodes; i++) {
+        PATHFINDNODE* n = (PATHFINDNODE*)((u32*)map + map->nodeOffsets[i]);
+        once.swap16s(&n->wave, 2);
+        once.swap16s((u8*)n + 8, 1);
+        for (u32 k = 0; k < n->numBranches; k++) {
+            once.swap16s(&n->branches[k].node, 1);
+        }
+        maxWave = n->wave > maxWave ? n->wave : maxWave;
+        maxFade = n->fadeIn > maxFade ? n->fadeIn : maxFade;
+        maxFade = n->fadeOut > maxFade ? n->fadeOut : maxFade;
+        maxRemap = n->remap > maxRemap ? n->remap : maxRemap;
+        if (i == map->numNodes - 1) {
+            last = n;
+        }
+    }
+    // The rest follows the last node (as PATH_addmapfile finds it).
+    u8* eventTable = (u8*)last + last->numBranches * sizeof(PATHBRANCH) + 0xC;
+    PATHEVENTVALUE* values =
+        (PATHEVENTVALUE*)(eventTable + ((map->numTracks * (map->numEvents * map->numSections) + 3) & ~3));
+    for (int i = 0; i < map->numValues; i++) {
+        NativeSwap16(&values[i].node);
+    }
+    u32* tables = (u32*)(values + map->numValues);
+    int numTables = (map->tableIndex > maxRemap ? map->tableIndex : maxRemap) + 1;
+    once.swap32s(tables, numTables);
+    for (int list = 1; list <= maxRemap; list++) {  // pairs old << 16 | new
+        once.swap32s((u32*)map + tables[list - 1], tables[list] - tables[list - 1]);
+    }
+    u32* fadeOffsets = (u32*)map + tables[map->tableIndex];
+    once.swap32s(fadeOffsets, map->numTracks + 1);
+    once.swap32s(fadeOffsets + map->numTracks + 1, maxWave * 2);  // waves: offset, length
+    PATHFADE* fades = (PATHFADE*)((u32*)map + fadeOffsets[map->numTracks]);
+    for (int i = 0; i < maxFade; i++) {
+        once.swap16s(&fades[i].duration, 1);
+    }
+    return true;
+}
+#endif
 
 // A loaded map. size 0x1A8
 struct PATHPROJECT {

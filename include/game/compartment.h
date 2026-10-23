@@ -143,21 +143,23 @@ public:
 struct CPTDisplayList {
     /* 0x00 */ u16 m_flags;  // bit 0: 16-bit vertex indices
     /* 0x02 */ u16 m_size;   // vertex count until Init, then the list's byte size
-    /* 0x04 */ f32* m_positions;
-    /* 0x08 */ u32* m_colors;
-    /* 0x0C */ s8* m_normals;
-    /* 0x10 */ s16* m_texCoords;
-    /* 0x14 */ gcVertex* m_list;  // GX commands: array setup (0x34 bytes), then the strip
+    /* 0x04 */ PTR32(f32) m_positions;
+    /* 0x08 */ PTR32(u32) m_colors;
+    /* 0x0C */ PTR32(s8) m_normals;
+    /* 0x10 */ PTR32(s16) m_texCoords;
+    /* 0x14 */ PTR32(gcVertex) m_list;  // GX commands: array setup (0x34 bytes), then the strip
 };
+FILE_SIZE_ASSERT(CPTDisplayList, 0x18);
 
 // A piece of a node drawn with one material (0x14 bytes).
 struct CPTChunk {
-    /* 0x00 */ CPTNode* m_node;
-    /* 0x04 */ CPTChunk* m_next;  // in the material's queue
-    /* 0x08 */ CCPTMatBin* m_material;
-    /* 0x0C */ CPTDisplayList* m_list;
+    /* 0x00 */ PTR32(CPTNode) m_node;
+    /* 0x04 */ PTR32(CPTChunk) m_next;  // in the material's queue
+    /* 0x08 */ PTR32(CCPTMatBin) m_material;  // natively a separate object, not the file record
+    /* 0x0C */ PTR32(CPTDisplayList) m_list;
     /* 0x10 */ u32 unk_0x10;
 };
+FILE_SIZE_ASSERT(CPTChunk, 0x14);
 
 enum {
     CPTSWAP_ONCE = 0,  // play to the last frame (then collision is disabled)
@@ -167,15 +169,25 @@ enum {
 
 // A chunk whose material steps through frames (0x2C bytes).
 struct CPTTexSwap : CPTChunk {
-    /* 0x14 */ CCPTMatBin* m_frames[5];
+    /* 0x14 */ PTR32(CCPTMatBin) m_frames[5];
     /* 0x28 */ u8 m_delay;    // swaps to skip between frames
     /* 0x29 */ u8 m_counter;
     /* 0x2A */ u8 unk_0x2A;
+#ifdef FRONTLINE_NATIVE
+    // clang allocates bitfields from the low bit, CodeWarrior from the high
+    // bit: declared in reverse so the file's bits line up.
+    /* 0x2B */ u8 m_numFrames : 3;
+    /* 0x2B */ u8 m_mode : 2;       // CPTSWAP_*
+    /* 0x2B */ u8 m_reverse : 1;    // ping-pong going backwards
+    /* 0x2B */ u8 unk_0x2B : 2;
+#else
     /* 0x2B */ u8 unk_0x2B : 2;
     /* 0x2B */ u8 m_reverse : 1;    // ping-pong going backwards
     /* 0x2B */ u8 m_mode : 2;       // CPTSWAP_*
     /* 0x2B */ u8 m_numFrames : 3;
+#endif
 };
+FILE_SIZE_ASSERT(CPTTexSwap, 0x2C);
 
 // A light link from the light pool (0xC bytes).
 struct CLightLink {
@@ -197,34 +209,103 @@ struct CPTNode {
     /* 0x10 */ CVector3 m_axisY;
     /* 0x20 */ CVector3 m_axisZ;
     /* 0x30 */ CVector3 m_center;
-    /* 0x40 */ CPTNode* m_children[2];
-    /* 0x48 */ CPTChunk* m_chunks;
+    /* 0x40 */ PTR32(CPTNode) m_children[2];
+    /* 0x48 */ PTR32(CPTChunk) m_chunks;
     /* 0x4C */ int m_numChunks;
-    /* 0x50 */ CPTTexSwap* m_swaps;
+    /* 0x50 */ PTR32(CPTTexSwap) m_swaps;
     /* 0x54 */ int m_numSwaps;
     /* 0x58 */ s16 m_drawFlags;  // CPTNODE_*, set by DrawNode
+#ifdef FRONTLINE_NATIVE
+    /* 0x5A */ u8 unk_0x5A : 7;
+    /* 0x5A */ u8 m_visible : 1;
+#else
     /* 0x5A */ u8 m_visible : 1;
     /* 0x5A */ u8 unk_0x5A : 7;
+#endif
     /* 0x5B */ u8 unk_0x5B;
-    /* 0x5C */ CLightLink* m_lights;
+    /* 0x5C */ PTR32(CLightLink) m_lights;
     /* 0x60 */ int m_numLights;
     /* 0x64 */ u8 unk_0x64[0xC];
 };
+FILE_SIZE_ASSERT(CPTNode, 0x70);
 
 // The .cpt file header; pointers are file offsets until Init.
 struct CPTHeader {
     /* 0x00 */ u8 unk_0x0[0x8];
-    /* 0x08 */ CCPTMatBin* m_opaque;  // materials (0x70 bytes each)
+    /* 0x08 */ PTR32(CCPTMatBin) m_opaque;  // materials (0x70-byte records; natively a separate array)
     /* 0x0C */ int m_numOpaque;
-    /* 0x10 */ CCPTMatBin* m_alpha;
+    /* 0x10 */ PTR32(CCPTMatBin) m_alpha;
     /* 0x14 */ int m_numAlpha;
-    /* 0x18 */ CPTChunk* m_chunks;
+    /* 0x18 */ PTR32(CPTChunk) m_chunks;
     /* 0x1C */ int m_numChunks;
-    /* 0x20 */ CPTNode* m_nodes;  // the first is the root
+    /* 0x20 */ PTR32(CPTNode) m_nodes;  // the first is the root
     /* 0x24 */ int m_numNodes;
-    /* 0x28 */ CPTTexSwap** m_texSwaps;
+    /* 0x28 */ PTR32(PTR32(CPTTexSwap)) m_texSwaps;
     /* 0x2C */ int m_numTexSwaps;
 };
+FILE_SIZE_ASSERT(CPTHeader, 0x30);
+
+#ifdef FRONTLINE_NATIVE
+// A material as stored in the file. The GameCube builds its CCPTMatBin over
+// this record; natively that object is bigger, so CCompartment::Init builds
+// separate ones from these fields.
+struct CPTMaterialRecord {
+    /* 0x00 */ u8 unk_0x0[0x60];  // room for the CCPTMatBin built over it
+    /* 0x60 */ PTR32(ShapeFile) m_shape;
+    /* 0x64 */ u32 m_flags;
+    /* 0x68 */ u32 m_chunks;
+    /* 0x6C */ s32 m_shared;  // index into the shared compartment's materials
+};
+FILE_SIZE_ASSERT(CPTMaterialRecord, 0x70);
+
+#include "native/swap.h"
+
+// .cpt files are big-endian GameCube data. Swaps the fields the CPU reads
+// (offsets are still file-relative here); vertex arrays, display list
+// commands and textures are read by the GPU and stay big-endian.
+inline void CPTFromBigEndian(CPTHeader* header) {
+    u8* base = (u8*)header;
+    NativeSwapOnce once;
+    NativeSwap32s(header, sizeof(CPTHeader) / 4);
+    u32 records[2] = {header->m_opaque.addr(), header->m_alpha.addr()};
+    int counts[2] = {header->m_numOpaque, header->m_numAlpha};
+    for (int s = 0; s < 2; s++) {
+        for (int i = 0; i < counts[s]; i++) {
+            NativeSwap32s(base + records[s] + i * sizeof(CPTMaterialRecord) + 0x60, 4);
+        }
+    }
+    struct Walk {
+        u8* base;
+        NativeSwapOnce& once;
+        void Chunk(u8* chunk) {
+            NativeSwap32s(chunk, sizeof(CPTChunk) / 4);
+            u32 list = ((CPTChunk*)chunk)->m_list.addr();
+            if (list != 0 && once.first(base + list)) {
+                NativeSwap16s(base + list, 2);
+                NativeSwap32s(base + list + 4, 5);
+            }
+        }
+    } walk = {base, once};
+    for (int i = 0; i < header->m_numChunks; i++) {
+        walk.Chunk(base + header->m_chunks.addr() + i * sizeof(CPTChunk));
+    }
+    for (int i = 0; i < header->m_numNodes; i++) {
+        u8* n = base + header->m_nodes.addr() + i * sizeof(CPTNode);
+        NativeSwap32s(n, 0x58 / 4);  // axes, center, children, chunks, swaps
+        NativeSwap16(n + 0x58);
+        NativeSwap32s(n + 0x5C, 2);
+        CPTNode* node = (CPTNode*)n;
+        for (int j = 0; j < node->m_numSwaps; j++) {
+            u8* swap = base + node->m_swaps.addr() + j * sizeof(CPTTexSwap);
+            if (once.first(swap)) {
+                walk.Chunk(swap);
+                NativeSwap32s(swap + 0x14, 5);  // frames
+            }
+        }
+    }
+    NativeSwap32s(base + header->m_texSwaps.addr(), header->m_numTexSwaps);
+}
+#endif
 
 // A level section's static geometry and collision.
 class CCompartment : public CSceneNodeData {

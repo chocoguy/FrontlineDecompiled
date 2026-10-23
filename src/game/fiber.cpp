@@ -47,7 +47,7 @@ CVolFiber::CVolFiber(const CLine3& line) {
 CVolFiber::~CVolFiber() {}
 
 int CVolFiber::Create() const {
-    return (int)new CVolFiber;
+    return (int)PTR_TO_ADDR(new CVolFiber);
 }
 
 void CVolFiber::TransformedCopy(const IVolume& volume, const CMatrix& m) {

@@ -209,6 +209,7 @@ int FILESYS_waitop(int op) {
     for (;;) {
         if (THREAD_iscurrent(0)) {
             SYNCTASK_run(0);
+            SPIN_WAIT();
         } else {
             THREAD_yield(10);
         }
@@ -231,7 +232,7 @@ int FILESYS_completeop(int op) {
         switch (o->h.f.type) {
         case FILEOP_OPEN:
         case FILEOP_ADDBIG:
-            result = (int)o->file;
+            result = (int)PTR_TO_ADDR(o->file);
             break;
         case FILEOP_CLOSE:
         case FILEOP_7:
@@ -310,9 +311,9 @@ int FILESYS_close(int file, int priority, void* data) {
     op->h.f.type = FILEOP_CLOSE;
     op->priority = priority;
     op->data = data;
-    op->file = (HANDLE_def*)file;
+    op->file = ADDR_TO_PTR(HANDLE_def, file);
     for (; big != NULL; big = big->next) {
-        if (big->file == (HANDLE_def*)file) {
+        if (big->file == ADDR_TO_PTR(HANDLE_def, file)) {
             op->error = 3;
             iFILE_perror(op);
             break;
@@ -331,7 +332,7 @@ int FILESYS_read(int file, int offset, void* buffer, int size, int priority, voi
         op->error = 6;
         iFILE_perror(op);
     }
-    op->file = (HANDLE_def*)file;
+    op->file = ADDR_TO_PTR(HANDLE_def, file);
     if (offset + size > op->file->size) {
         size = op->file->size - offset;
     }
@@ -351,7 +352,7 @@ int FILESYS_size(int file, int priority, void* data) {
         op->error = 6;
         iFILE_perror(op);
     }
-    op->file = (HANDLE_def*)file;
+    op->file = ADDR_TO_PTR(HANDLE_def, file);
     iFILE_ExecCommand(op);
     return op->h.handle;
 }
@@ -382,7 +383,7 @@ void iFILE_addbigreadcallback(int op, int status, void* data) {
         MEM_copy(header, tmp, big->headersize);
         gFileSysOpts.free(tmp);
         big->header = header;
-        FILESYS_callbackop(FILESYS_read((int)big->file, big->headersize, (u8*)big->header + big->headersize,
+        FILESYS_callbackop(FILESYS_read((int)PTR_TO_ADDR(big->file), big->headersize, (u8*)big->header + big->headersize,
                                         size - big->headersize, priority, big),
                            iFILE_addbigreadcallback);
         big->headersize = size;
@@ -419,7 +420,7 @@ extern "C" int FILESYS_addbig(const char* name, int memflags, int priority, void
             op->file = big->file;
             iFILE_ExecCommand(op);
             // Returns the operation itself here, not its handle.
-            return (int)op;
+            return (int)PTR_TO_ADDR(op);
         }
     }
 
@@ -448,17 +449,17 @@ extern "C" int FILESYS_delbig(int file, int priority, void* data) {
     op->h.f.type = FILEOP_DELBIG;
     op->data = data;
     op->priority = priority;
-    if (((HANDLE_def*)file)->type == FILEHANDLE_BIG) {
+    if ((ADDR_TO_PTR(HANDLE_def, file))->type == FILEHANDLE_BIG) {
         op->error = 1;
     }
     for (i = 0; i < gFileDevice.numhandles; i++, h++) {
-        if (h != NULL && h->type == FILEHANDLE_BIG && h->u.big.big->file == (HANDLE_def*)file) {
+        if (h != NULL && h->type == FILEHANDLE_BIG && h->u.big.big->file == ADDR_TO_PTR(HANDLE_def, file)) {
             op->status = -2;
             op->error = 1;
             break;
         }
     }
-    for (; big != NULL && big->file != (HANDLE_def*)file; big = big->next) {
+    for (; big != NULL && big->file != ADDR_TO_PTR(HANDLE_def, file); big = big->next) {
         prev = big;
     }
     if (big == NULL) {

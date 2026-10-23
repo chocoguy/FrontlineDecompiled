@@ -44,7 +44,7 @@ void CPlayerWeaponObject::SetSleeveTexture(char* name) {
     bool loaded = false;
     LevelFileContentsStruct_* res = TLT_FindNextResourceByType((TLTResourceID)0xD, NULL);
     CTexturePack* pack =
-        (CTexturePack*)TLT_LoadFromRepository((const char*)res->fields[28].value, NULL, &loaded);
+        (CTexturePack*)TLT_LoadFromRepository(ADDR_TO_PTR(const char, res->fields[28].value), NULL, &loaded);
     m_pSleeveTexture = pack->FindTexture(name);
 }
 
@@ -312,9 +312,9 @@ void CPlayerWeaponObject::Draw(CDrawContext& ctx) {
     ((f64*)ctx.m_scale)[1] = savedScale1;
 }
 
-int CPlayerWeaponObject::CommitUpdate() {}
+int CPlayerWeaponObject::CommitUpdate() { END_RETURN_NOTHING }
 
-int CPlayerWeaponObject::AttemptUpdate(float) {}
+int CPlayerWeaponObject::AttemptUpdate(float) { END_RETURN_NOTHING }
 
 // Animates the arms, follows the player and, on a shot, spins the flash and
 // spawns the muzzle particles. Also keeps weapon pickups of this type
@@ -330,22 +330,22 @@ int CPlayerWeaponObject::BeginUpdate(float dt) {
         }
     }
     if (!m_active) {
-        return;
+        RETURN_NOTHING;
     }
     UpdateAnimation(dt);
     if (m_pPlayer->m_hideWeapon) {
-        return;
+        RETURN_NOTHING;
     }
     UpdateWeaponTransforms();
     m_pWeapon->Update(dt, false);
     if (!(u8)m_pWeapon->GetMuzzleFlashStatus() || m_pPlayer->m_scopeView) {
-        return;
+        RETURN_NOTHING;
     }
     m_flashSpin = 0.0f;
     m_flashSpin = MathFunRandomReal(0.0f, 6.28f * dt);
     float scale = m_flashScale;
     if (m_pMuzzleFlash == NULL) {
-        return;
+        RETURN_NOTHING;
     }
     CharSkel_t* skel = m_anim.m_pSkel;
     CMatrix scaleTM;
@@ -369,6 +369,7 @@ int CPlayerWeaponObject::BeginUpdate(float dt) {
             ps->SetLocalToWorld(tm);
         }
     }
+    END_RETURN_NOTHING
 }
 
 // Places the weapon at the player's eyes (plus its offset, rotation and the

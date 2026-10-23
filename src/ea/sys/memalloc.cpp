@@ -74,9 +74,9 @@ static void* MEM_allocaligna(const char* name, int size, int align, int offset, 
             prev = block->prev;
             if (fromTop) {
                 rest = block;
-                data = (void*)((((u32)block + blockSize - need + offset) & ~alignMask) - offset);
+                data = (void*)((((uptr)(block) + blockSize - need + offset) & ~alignMask) - offset);
             } else {
-                data = (void*)((((u32)block + alignMask + offset + 0x10) & ~alignMask) - offset);
+                data = (void*)((((uptr)(block) + alignMask + offset + 0x10) & ~alignMask) - offset);
             }
             header = MEM_header(data);
             header->next = next;
@@ -92,7 +92,7 @@ static void* MEM_allocaligna(const char* name, int size, int align, int offset, 
                     FREE_add(mc, rest);
                 } else {
                     // The free remainder starts after the new block's data.
-                    rest = (MEMBLOCK*)(((u32)data + need + blockMask) & ~blockMask);
+                    rest = (MEMBLOCK*)(((uptr)(data) + need + blockMask) & ~blockMask);
                     header->next->prev = rest;
                     header->prev->next = header;
                     MEM_initblock(rest, NULL, 0, 0, 0, header, header->next);

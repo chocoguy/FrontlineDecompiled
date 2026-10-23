@@ -123,13 +123,13 @@ void SNDMIXI_initfx(int rate) {
     int i;
 
     pheaderinfo = filehead;
-    phead = (SFILTER**)SNDMEMI_allocz(0x1C);
-    memset(phead, 0, 0x1C);
+    phead = (SFILTER**)SNDMEMI_allocz(GC_SIZE(0x1C, 7 * sizeof(SFILTER*)));
+    memset(phead, 0, GC_SIZE(0x1C, 7 * sizeof(SFILTER*)));
     int cfg = (validstructoutputs - 1) * 4;
     plisthead = modlist;
     pconhead = conlist;
     int n = SNDI_getb(pheaderinfo + cfg + 8, 4);
-    pfilterlist = (SFILTER**)SNDMEMI_allocz(n * 4);
+    pfilterlist = (SFILTER**)SNDMEMI_allocz(n * GC_SIZE(4, sizeof(SFILTER*)));
     u8* m = plisthead;
     int r = rate << 8;
     for (i = 0; i < n; i++) {

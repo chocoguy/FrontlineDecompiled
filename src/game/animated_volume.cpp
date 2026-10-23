@@ -10,8 +10,8 @@
 // Functions are written in reverse address order: the game was compiled with
 // deferred inlining, which emits them last to first.
 
-// The owner's bone matrices (CAnimObject + 0xF40, not typed yet).
-#define OWNER_BONES(owner) ((const CMatrix*)((const u8*)(owner) + 0xF40))
+// The owner's bone matrices.
+#define OWNER_BONES(owner) ((const CMatrix*)(owner)->m_bones)
 
 void CAnimatedVolume::TransformedCopy(const IVolume& volume, const CMatrix& m) {
     const CAnimatedVolume& src = (const CAnimatedVolume&)volume;
@@ -23,7 +23,7 @@ void CAnimatedVolume::TransformedCopy(const IVolume& volume, const CMatrix& m) {
 }
 
 int CAnimatedVolume::Create() const {
-    return (int)new CAnimatedVolume;
+    return (int)PTR_TO_ADDR(new CAnimatedVolume);
 }
 
 int CAnimatedVolume::TestCollision(const CAnimatedVolume& volume, CCollision& collision, bool record) const {
@@ -106,7 +106,11 @@ int CAnimatedVolume::TestCollision(const CLine3& line, CCollision& collision, bo
                 m = bones[m_pData->shapes[i].bone];
                 m.TibToMOHFL();
                 CVolBox box;
+#ifdef FRONTLINE_NATIVE
+                box.TransformedCopy(GCVolBox(m_pData->shapes[i].box), m);
+#else
                 box.TransformedCopy(*(const IVolume*)m_pData->shapes[i].box, m);
+#endif
                 m_boxes[i].TransformedCopy(box, world);
             }
         }
@@ -170,7 +174,7 @@ int CAnimatedVolume::TestCollision(const CLine3& line, CCollision& collision, bo
                 contact.m_depth = first->m_depth;
                 contact.m_normal.Copy(first->m_normal);
                 contact.m_point.Copy(first->m_point);
-                contact.m_pPoly = (const SClsnPoly*)bestLocation;
+                contact.m_pPoly = ADDR_TO_PTR(const SClsnPoly, bestLocation);
                 collision.AddContact(contact);
             }
         }

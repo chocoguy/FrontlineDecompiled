@@ -202,7 +202,7 @@ public:
     virtual const CStaticObject* AsStaticObject() const { return this; }  // 0x80097290 (weak)
     virtual CStaticObject* AsStaticObject() { return this; }  // 0x80097294 (weak)
     virtual int IsDrawEnabled() const { return m_drawEnabled; }  // 0x80097298 (weak)
-    virtual int GetAttachedLight() const { return (int)m_pLight; }  // 0x800972A4 (weak)
+    virtual int GetAttachedLight() const { return (int)PTR_TO_ADDR(m_pLight); }  // 0x800972A4 (weak)
     int IsFollowingPath() const;  // 0x8009B944
     virtual void Destroy();  // 0x800AE80C
     virtual void MarkForDestruction(int);  // 0x800AE870

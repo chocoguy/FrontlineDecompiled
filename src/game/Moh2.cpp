@@ -846,7 +846,7 @@ void IMovingSceneNode::Pitch(float) {}
 void IMovingSceneNode::Roll(float) {}
 
 // Like the original, returns nothing (r3 is left holding `this`).
-int IMovingSceneNode::Yaw(float) {}
+int IMovingSceneNode::Yaw(float) { END_RETURN_NOTHING }
 
 void IMovingSceneNode::SetPosition(CVector3) {}
 
@@ -876,7 +876,7 @@ IMovingSceneNode* IMovingSceneNode::AsMovingNode() {
 
 // The three update steps return nothing, like the original (r3 is left
 // holding `this`).
-int ISceneNode::BeginUpdate(float) {}
+int ISceneNode::BeginUpdate(float) { END_RETURN_NOTHING }
 
 void ISceneNode::UpdateAI(float) {}
 
@@ -884,11 +884,11 @@ void ISceneNode::CommitAI() {}
 
 void ISceneNode::ConstrainVelocity() {}
 
-int ISceneNode::AttemptUpdate(float) {}
+int ISceneNode::AttemptUpdate(float) { END_RETURN_NOTHING }
 
 void ISceneNode::OnCollision(const CCollision&) {}
 
-int ISceneNode::CommitUpdate() {}
+int ISceneNode::CommitUpdate() { END_RETURN_NOTHING }
 
 void ISceneNode::Draw(CDrawContext&) {}
 

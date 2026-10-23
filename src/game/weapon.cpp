@@ -248,7 +248,7 @@ void CWeapon::Update(float dt, bool paused) {
                 }
             } else if (!m_bReloading && !paused) {
                 if (m_pHolder != NULL) {
-                    m_pHolder->TriggerScriptEvent(0x19, (void*)m_reserveAmmo, false);
+                    m_pHolder->TriggerScriptEvent(0x19, ADDR_TO_PTR(void, m_reserveAmmo), false);
                 }
                 m_bReloading = true;
             }
@@ -268,7 +268,7 @@ void CWeapon::Update(float dt, bool paused) {
         }
         if (m_clipAmmo <= 0 && !m_bReloading && !paused) {
             if (m_pHolder != NULL) {
-                m_pHolder->TriggerScriptEvent(0x19, (void*)m_reserveAmmo, false);
+                m_pHolder->TriggerScriptEvent(0x19, ADDR_TO_PTR(void, m_reserveAmmo), false);
             }
             m_bReloading = true;
         }
@@ -280,7 +280,7 @@ void CWeapon::Update(float dt, bool paused) {
         }
         if (m_clipAmmo <= 0 && !paused) {
             if (m_pHolder != NULL) {
-                m_pHolder->TriggerScriptEvent(0x19, (void*)m_reserveAmmo, false);
+                m_pHolder->TriggerScriptEvent(0x19, ADDR_TO_PTR(void, m_reserveAmmo), false);
             }
             AddAmo(m_pProperties->m_clipSize);
             Refill(this);

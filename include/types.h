@@ -3,6 +3,20 @@
 #ifndef _TYPES_H_
 #define _TYPES_H_
 
+#ifdef FRONTLINE_NATIVE
+// Native (64-bit) build: `long` is 64 bits there, so use fixed-width types.
+// The GameCube build keeps `long`, which C++ name mangling depends on.
+#include <stddef.h>
+#include <stdint.h>
+typedef int8_t s8;
+typedef int16_t s16;
+typedef int32_t s32;
+typedef int64_t s64;
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+#else
 typedef signed char s8;
 typedef signed short s16;
 typedef signed long s32;
@@ -11,6 +25,7 @@ typedef unsigned char u8;
 typedef unsigned short u16;
 typedef unsigned long u32;
 typedef unsigned long long u64;
+#endif
 typedef float f32;
 typedef double f64;
 
@@ -26,14 +41,100 @@ typedef int BOOL;
 #define NULL 0
 #endif
 
+// Pointer-sized integers: 32 bits on GameCube, 64 natively (`long` is
+// pointer-sized on both). Use these where code does arithmetic on an address.
+typedef unsigned long uptr;
+typedef signed long sptr;
+
 // Fails to compile if sizeof(T) != size (no static_assert in this compiler).
 #define SIZE_ASSERT_CAT2(a, b) a##b
 #define SIZE_ASSERT_CAT(a, b) SIZE_ASSERT_CAT2(a, b)
-#define SIZE_ASSERT(T, size) \
+#define FILE_SIZE_ASSERT(T, size) \
     typedef char SIZE_ASSERT_CAT(size_assert_, __LINE__)[(sizeof(T) == (size)) ? 1 : -1]
 
 // Fails to compile if T::field is not at byte offset `off`.
-#define OFFSET_ASSERT(T, field, off) \
-    typedef char SIZE_ASSERT_CAT(offset_assert_, __LINE__)[((unsigned long)&((T*)0)->field == (off)) ? 1 : -1]
+#define FILE_OFFSET_ASSERT(T, field, off) \
+    typedef char SIZE_ASSERT_CAT(offset_assert_, __LINE__)[((uptr)&((T*)0)->field == (off)) ? 1 : -1]
+
+// SIZE_ASSERT/OFFSET_ASSERT pin the GameCube layout of structs built at run
+// time. Natively those may differ (pointers are 8 bytes), so the checks only
+// run on GameCube. Structs laid over file data use the FILE_ forms, which hold
+// on both builds.
+// FRONTLINE_AUDIT_SIZES checks them natively too, to list the structs whose
+// layout differs (tools/build_report.py --sizes).
+#if defined(FRONTLINE_NATIVE) && !defined(FRONTLINE_AUDIT_SIZES)
+#define SIZE_ASSERT(T, size) typedef char SIZE_ASSERT_CAT(size_assert_, __LINE__)[1]
+#define OFFSET_ASSERT(T, field, off) typedef char SIZE_ASSERT_CAT(offset_assert_, __LINE__)[1]
+#else
+#define SIZE_ASSERT(T, size) FILE_SIZE_ASSERT(T, size)
+#define OFFSET_ASSERT(T, field, off) FILE_OFFSET_ASSERT(T, field, off)
+#endif
+
+// A size the GameCube code writes as a literal, for a struct or range whose
+// native size differs (pointers are 8 bytes): the literal on GameCube, the
+// native expression natively. GC_SIZE(0x1C, 7 * sizeof(SFILTER*)).
+#ifdef FRONTLINE_NATIVE
+#define GC_SIZE(gc, native) (native)
+#else
+#define GC_SIZE(gc, native) (gc)
+#endif
+
+// The body of a loop that waits for an interrupt handler to change something.
+// On the console the loop spins until the interrupt; natively interrupts only
+// arrive at safe points, so this sleeps until one is raised and delivers it
+// (FrontlineRewritten docs/architecture/0002).
+#ifdef FRONTLINE_NATIVE
+#ifdef __cplusplus
+extern "C" void NativeSpinWait(void);
+#else
+void NativeSpinWait(void);
+#endif
+#define SPIN_WAIT() NativeSpinWait()
+#else
+#define SPIN_WAIT()
+#endif
+
+// The top `n` bits of a 32-bit word, n = 0..32. PowerPC shifts by 32 or more
+// give 0; ARM uses the count modulo 32, so a 0-bit read (x >> 32) would give
+// x natively.
+#ifdef FRONTLINE_NATIVE
+#define TOP_BITS(x, n) ((n) == 0 ? 0u : (x) >> (32 - (n)))
+#else
+#define TOP_BITS(x, n) ((x) >> (32 - (n)))
+#endif
+
+// CodeWarrior let an int function return nothing (`return;`, or falling off
+// the end), leaving r3 as it was; the game never uses those values. Natively
+// that's undefined behavior, so the native build returns 0 instead.
+#ifdef FRONTLINE_NATIVE
+#define RETURN_NOTHING return 0
+#define END_RETURN_NOTHING return 0;
+#else
+#define RETURN_NOTHING return
+#define END_RETURN_NOTHING
+#endif
+
+// Pointers kept in 32 bits.
+//   PTR32(T)          a pointer field in a struct laid over file data
+//   PTR32_RAW(f)      such a field's stored 32 bits (a file offset before relocation)
+//   PTR_TO_ADDR(p)    a pointer as a 32-bit address, as `(u32)p` on GameCube
+//   ADDR_TO_PTR(T, a) the reverse, as `(T*)a`
+// On GameCube these are the plain pointer and casts. Natively the value is an
+// address in a GameCube-like map; see native/address.h.
+#ifdef FRONTLINE_NATIVE
+#include "native/address.h"
+#ifdef __cplusplus
+#include "native/ptr32.h"
+#endif
+#define PTR32(T) ptr32<T>
+#define PTR32_RAW(field) ((field).addr())
+#define PTR_TO_ADDR(p) NativePtrToAddr(p)
+#define ADDR_TO_PTR(T, a) ((T*)NativeAddrToPtr((u32)(a)))
+#else
+#define PTR32(T) T*
+#define PTR32_RAW(field) ((u32)(field))
+#define PTR_TO_ADDR(p) ((u32)(p))
+#define ADDR_TO_PTR(T, a) ((T*)(a))
+#endif
 
 #endif

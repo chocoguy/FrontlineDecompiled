@@ -8,9 +8,9 @@ static void _SkelRelocateHierarchyNode(CharJointHierarchy_t* node, void* base) {
     for (int i = 0; i < node->numChildren; i++) {
         EndianSwap(*(u32*)&node->children[i]);
     }
-    node->parent = (CharJointHierarchy_t*)((u8*)base + (u32)node->parent);
+    node->parent = (CharJointHierarchy_t*)((u8*)base + (u32)PTR_TO_ADDR(node->parent));
     for (int i = 0; i < node->numChildren; i++) {
-        node->children[i] = (CharJointHierarchy_t*)((u8*)base + (u32)node->children[i]);
+        node->children[i] = (CharJointHierarchy_t*)((u8*)base + (u32)PTR_TO_ADDR(node->children[i]));
     }
 }
 
@@ -36,21 +36,21 @@ void CharRelocateSkeleton(CharSkel_t* skel) {
     if (skel->flags & CHARSKEL_RELOCATED) {
         return;
     }
-    skel->joints = (CharJoint_t*)((u8*)skel + (u32)skel->joints);
-    skel->root = (CharJointHierarchy_t*)((u8*)skel + (u32)skel->root);
-    skel->matrices = (CharSkelMatrixEntry_t*)((u8*)skel + (u32)skel->matrices);
+    skel->joints = (CharJoint_t*)((u8*)skel + (u32)PTR_TO_ADDR(skel->joints));
+    skel->root = (CharJointHierarchy_t*)((u8*)skel + (u32)PTR_TO_ADDR(skel->root));
+    skel->matrices = (CharSkelMatrixEntry_t*)((u8*)skel + (u32)PTR_TO_ADDR(skel->matrices));
     for (u32 i = 0; i < skel->numMatrices; i++) {
         CharSkelMatrixEntry_t* entry = &skel->matrices[i];
         EndianSwap(entry->joint);
         EndianSwap(*(u32*)&entry->matrix);
-        skel->matrices[i].matrix = (CMatrix*)((u8*)skel + (u32)skel->matrices[i].matrix);
+        skel->matrices[i].matrix = (CMatrix*)((u8*)skel + (u32)PTR_TO_ADDR(skel->matrices[i].matrix));
         skel->matrices[i].matrix->EndianSwap();
     }
     CharTraverseSkeleton(skel->root, _SkelRelocateHierarchyNode, skel);
     skel->root->parent = skel->root;
     for (u32 i = 0; i < skel->numJoints; i++) {
         EndianSwap(*(u32*)&skel->joints[i].node);
-        skel->joints[i].node = (CharJointHierarchy_t*)((u8*)skel + (u32)skel->joints[i].node);
+        skel->joints[i].node = (CharJointHierarchy_t*)((u8*)skel + (u32)PTR_TO_ADDR(skel->joints[i].node));
     }
     skel->flags |= CHARSKEL_RELOCATED;
 }

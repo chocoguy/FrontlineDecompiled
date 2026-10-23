@@ -127,7 +127,7 @@ static inline ISceneNode* DoodadNode(CAIDoodad* doodad) {
 }
 
 static inline int ScriptHealth(BSGO_Basic* go) {
-    return *(int*)((u8*)go + 0x10);
+    return *BSGO_SCRIPT_DATA(go);
 }
 
 // Position, axes and velocity of the AI object from its scene node.
@@ -232,6 +232,9 @@ void CAIFilterGlobal::PropagateSoundToAllObjects(const CAIFilterSoundInfo& info)
 }
 
 static inline void SwapWord(void* p) {
+#ifdef FRONTLINE_NATIVE
+    return;  // little-endian data on a little-endian CPU: nothing to swap
+#endif
     u8* b = (u8*)p;
     u8 t = b[0];
     b[0] = b[3];
@@ -248,7 +251,7 @@ void CAIFilterGlobal::CreateSplinePathManager(void* base, BPDPolyPath* paths, in
         m_splinePaths = new CAISplinePathManager(count);
         m_splinePaths->AllocateGenerateBuffers();
         for (int i = 0; i < count; i++, paths++) {
-            paths->m_points = (_aifilter_simple_v3*)((u8*)paths->m_points + (u32)base);
+            paths->m_points = (_aifilter_simple_v3*)((u8*)paths->m_points + (u32)PTR_TO_ADDR(base));
             int j;
             for (j = 0; j < paths->m_numPoints; j++) {
                 _aifilter_simple_v3* pt = &paths->m_points[j];
@@ -768,8 +771,8 @@ BSObject* CAIFilterObject::GetTargetScript() const {
 // The AI object lives right after the filter, 16-byte aligned.
 static inline void* AIObjectBuffer(void* filter, u32 size) {
     u8* p = (u8*)filter + size;
-    if ((u32)p & 0xF) {
-        p = (u8*)(((u32)p & ~0xF) + 0x10);
+    if ((uptr)(p) & 0xF) {
+        p = (u8*)(((uptr)(p) & ~0xF) + 0x10);
     }
     return p;
 }
@@ -1300,9 +1303,9 @@ void CAIFilterPlayerObject::GetLookDirection(CAIFilterRealVector3& look, CAIFilt
 }
 
 // Layout checks against the original.
-typedef char AIFilterSoldierSizeCheck[sizeof(CAIFilterSoldierObject) == 0x14 ? 1 : -1];
-typedef char AIFilterTankSizeCheck[sizeof(CAIFilterTankObject) == 0x14 ? 1 : -1];
-typedef char AIFilterPlayerSizeCheck[sizeof(CAIFilterPlayerObject) == 0x18 ? 1 : -1];
-typedef char AIFilterGlobalSizeCheck[sizeof(CAIFilterGlobal) == 0x18 ? 1 : -1];
-typedef char MechanicCheckerSizeCheck[sizeof(MechanicCollisionChecker) == 0x70 ? 1 : -1];
-typedef char NoiseInfoSizeCheck[sizeof(NoiseInfo) == 0xC ? 1 : -1];
+SIZE_ASSERT(CAIFilterSoldierObject, 0x14);
+SIZE_ASSERT(CAIFilterTankObject, 0x14);
+SIZE_ASSERT(CAIFilterPlayerObject, 0x18);
+SIZE_ASSERT(CAIFilterGlobal, 0x18);
+SIZE_ASSERT(MechanicCollisionChecker, 0x70);
+SIZE_ASSERT(NoiseInfo, 0xC);

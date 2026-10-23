@@ -212,7 +212,7 @@ void GetCompartmentCDBNameFromIndex(int index, char* out, int) {
         *out = '\0';
         return;
     }
-    sprintf(out, "%s", (char*)res->fields[0].value);
+    sprintf(out, "%s", ADDR_TO_PTR(char, res->fields[0].value));
 }
 
 void GetCompartmentCPTNameFromIndex(int index, char* out, int) {
@@ -223,7 +223,7 @@ void GetCompartmentCPTNameFromIndex(int index, char* out, int) {
         *out = '\0';
         return;
     }
-    sprintf(out, "%s", (char*)res->fields[0].value);
+    sprintf(out, "%s", ADDR_TO_PTR(char, res->fields[0].value));
 }
 
 int GetCompartmentSizeFromIndex(int index) {
@@ -245,8 +245,8 @@ int GetCompartmentSizeFromIndex(int index) {
     if (cpt == NULL) {
         return -1;
     }
-    cptName = (const char*)cpt->fields[0].value;
-    if (!BIG_locateentryz(g_pCompartmentBigFileHeader, (const char*)cdb->fields[0].value, 0, &offset,
+    cptName = ADDR_TO_PTR(const char, cpt->fields[0].value);
+    if (!BIG_locateentryz(g_pCompartmentBigFileHeader, ADDR_TO_PTR(const char, cdb->fields[0].value), 0, &offset,
                           &cdbSize)) {
         return -1;
     }
@@ -294,21 +294,21 @@ void TLT_LoadLevelContentsFile(int, int) {
                  "definition.crd and reprocess your level\n");
     }
 
-    header->resources += (u32)header;
-    g_pLevelFileContentsArray = (LevelFileContentsStruct_*)header->resources;
+    header->resources += (u32)PTR_TO_ADDR(header);
+    g_pLevelFileContentsArray = ADDR_TO_PTR(LevelFileContentsStruct_, header->resources);
     g_pNumLevelFileContents = header->numResources;
     for (i = 0; i < header->numResources; i++) {
         res = &g_pLevelFileContentsArray[i];
         EndianSwap(res->type);
         EndianSwap(res->numFields);
         EndianSwap(res->fields);
-        res->fields = (TLTResourceField*)((u8*)header + (u32)res->fields);
+        res->fields = (TLTResourceField*)((u8*)header + (u32)PTR_TO_ADDR(res->fields));
         for (j = 0; j < res->numFields; j++) {
             EndianSwap(res->fields[j].kind);
             EndianSwap(res->fields[j].value);
             if (res->fields[j].kind == 0 || res->fields[j].kind == 4) {
                 if (res->fields[j].value != 0) {
-                    res->fields[j].value += (int)header;
+                    res->fields[j].value += (int)PTR_TO_ADDR(header);
                 }
             }
         }

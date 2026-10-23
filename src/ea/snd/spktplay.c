@@ -3,7 +3,7 @@
 SNDPKTPLAYSTATE sndpps;
 
 extern "C" int SNDPKTPLAY_overhead(int frames) {
-    return SNDPLATFORM_packetoverhead() + frames * sizeof(SNDPKTFRAME) + 0x64;
+    return SNDPLATFORM_packetoverhead() + frames * sizeof(SNDPKTFRAME) + GC_SIZE(0x64, sizeof(SNDPKTPLAY));
 }
 
 extern "C" int SNDPKTPLAY_create(SNDPKTFRAMECB frameDone, SNDPKTFREECB framesFree, void* param, void* buffer, int size) {
@@ -26,7 +26,7 @@ extern "C" int SNDPKTPLAY_create(SNDPKTFRAMECB frameDone, SNDPKTFREECB framesFre
     }
     p = (SNDPKTPLAY*)((u8*)buffer + SNDPLATFORM_packetoverhead());
     size -= SNDPLATFORM_packetoverhead();
-    p->numFrames = (u32)(size - 0x64) / sizeof(SNDPKTFRAME);
+    p->numFrames = (u32)(size - GC_SIZE(0x64, sizeof(SNDPKTPLAY))) / sizeof(SNDPKTFRAME);
     p->buffer = buffer;
     p->frameDone = frameDone;
     p->framesFree = framesFree;
@@ -214,7 +214,7 @@ static inline void SNDPKTPLAYI_notify(int player, SNDPKTPLAY* p) {
         SNDPKTCALLBACK* cb = &sndpps.callbacks[sndpps.numCallbacks];
         cb->type = 1;
         cb->player = player;
-        cb->value = (u32)f->data[0];
+        cb->value = (u32)PTR_TO_ADDR(f->data[0]);
         sndpps.numCallbacks++;
     }
     p->notifyPos++;
@@ -253,7 +253,7 @@ int SNDPKTPLAYI_get(int player, int chan, int* samples, int* flag) {
         p->waiting = 0;
     }
     if (f->data[chan] != NULL) {
-        return (int)f->data[chan];
+        return (int)PTR_TO_ADDR(f->data[chan]);
     }
     return -1;
 }
@@ -280,7 +280,7 @@ void SNDPKTPLAYI_flushcallbackdata() {
         if (cb->type == 0) {
             p->framesFree(cb->player, cb->value, p->param);
         } else {
-            p->frameDone((void*)cb->value, p->param);
+            p->frameDone(ADDR_TO_PTR(void, cb->value), p->param);
         }
     }
     sndpps.numCallbacks = 0;

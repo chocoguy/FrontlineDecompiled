@@ -31,7 +31,7 @@ static struct {
 static int requestidcounter;
 
 static inline void freerequest(ASYNCREQUEST* r) {
-    if (r->cancelled != 0 && (u32)r->buffer > 1) {
+    if (r->cancelled != 0 && (u32)PTR_TO_ADDR(r->buffer) > 1) {
         gFileSysOpts.free(r->buffer);
     }
     r->id &= 0xFF;
@@ -352,7 +352,7 @@ int ASYNCFILE_release(int id, int* buffer, int* bytes) {
         return -1;
     }
     if (buffer != NULL) {
-        *buffer = (int)(r->dest - r->total);
+        *buffer = (int)PTR_TO_ADDR((r->dest - r->total));
     }
     if (bytes != NULL) {
         *bytes = r->total;

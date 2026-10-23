@@ -17,11 +17,11 @@ static inline void Flush_Base(int n) {
 }
 
 static inline unsigned int Show_Base(int n) {
-    return MPDbase.Bfr >> (32 - n);
+    return TOP_BITS(MPDbase.Bfr, n);
 }
 
 static inline unsigned int Get_Base(int n) {
-    unsigned int val = MPDbase.Bfr >> (32 - n);
+    unsigned int val = TOP_BITS(MPDbase.Bfr, n);
     Flush_Base(n);
     return val;
 }

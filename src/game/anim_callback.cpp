@@ -25,6 +25,15 @@
 #include "game/player.h"
 #include "game/trig.h"
 
+// `arg` comes from AnimStStartState as an int: natively a 32-bit address (or
+// a float's or a CRC's bits) in a 64-bit register, so convert it.
+#ifdef FRONTLINE_NATIVE
+#define ARG_ADDR(arg) ((u32)(uptr)(arg))
+#else
+#define ARG_ADDR(arg) ((u32)PTR_TO_ADDR(arg))
+#endif
+#define ARG_PTR(T, arg) ADDR_TO_PTR(T, ARG_ADDR(arg))
+
 #define ANGLE_FULL 0x1000000  // 24-bit angles
 #define ANGLE_MASK 0xFFFFFF
 
@@ -371,7 +380,7 @@ int CAnimCallbacks::death_cb(AnimFileStateAnimList_t* anims, unsigned short stat
     if (event != ANIMST_EVENT_START) {
         return 0;
     }
-    AnimDeathInfo_t* info = (AnimDeathInfo_t*)arg;
+    AnimDeathInfo_t* info = ARG_PTR(AnimDeathInfo_t, arg);
     u32 weights[DEATH_MAX_ANIMS];
     u32 list[DEATH_MAX_ANIMS];
     u32 n = 0;
@@ -489,7 +498,7 @@ int CAnimCallbacks::weapon_cb(AnimFileStateAnimList_t* anims, unsigned short sta
     if (event == ANIMST_EVENT_START) {
         u32 i;
         for (i = 0; i < anims->count; i++) {
-            if ((u32)arg == ((AnimPlugWeapon_t*)anims->anims[i].plugin)->weapon) {
+            if (ARG_ADDR(arg) == ((AnimPlugWeapon_t*)anims->anims[i].plugin)->weapon) {
                 break;
             }
         }
@@ -539,7 +548,7 @@ int CAnimCallbacks::floco_cb(AnimFileStateAnimList_t* anims, unsigned short stat
     float speeds[16];
     switch (event) {
     case ANIMST_EVENT_START: {
-        mem->player = (CAnimatedPlayer*)arg;
+        mem->player = ARG_PTR(CAnimatedPlayer, arg);
         mem->player->GetFlocoParams(speed, dir);
         mem->player->SetFlocoParams(0.0f, 0);
         CPlayerObject* player = mem->player->m_pPlayer;
@@ -956,6 +965,9 @@ void _find_aim_blend_values(float x, float y, float* w) {
 }
 
 static inline void Swap16(u16& v) {
+#ifdef FRONTLINE_NATIVE
+    return;  // little-endian data on a little-endian CPU: nothing to swap
+#endif
     u8* p = (u8*)&v;
     u8 t = p[0];
     p[0] = p[1];
@@ -963,6 +975,9 @@ static inline void Swap16(u16& v) {
 }
 
 static inline void Swap32(u32& v) {
+#ifdef FRONTLINE_NATIVE
+    return;  // little-endian data on a little-endian CPU: nothing to swap
+#endif
     u32 x = v;
     u8* p = (u8*)&x;
     u8 b0 = p[0];

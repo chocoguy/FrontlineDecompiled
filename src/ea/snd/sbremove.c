@@ -36,7 +36,7 @@ extern "C" int SNDbankremove(int bank) {
         }
     }
     if (sndgs.banks[bank].aram != NULL) {
-        SNDPLATFORM_memfree(8, (unsigned int)sndgs.banks[bank].aram);
+        SNDPLATFORM_memfree(8, (unsigned int)PTR_TO_ADDR(sndgs.banks[bank].aram));
     }
     sndgs.banks[bank].data = NULL;
     sndgs.banks[bank].busy = 0;

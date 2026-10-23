@@ -1,6 +1,11 @@
 // CScene: the scene graph, its update with collision sub-stepping, and
 // drawing.
 #include "game/scene.h"
+
+#ifdef FRONTLINE_NATIVE
+#include <stddef.h>
+#endif
+
 #include "game/ISceneNode.h"
 #include "game/IMovingSceneNode.h"
 #include "game/IVolume.h"
@@ -36,8 +41,8 @@ extern const u8 g_theCollisionTable[435];  // clsn_table.cpp
 // The scene's words at the start of every node (see CSceneNodeData).
 struct SSceneNodeView {
     /* 0x00 */ void* m_vtable;
-    /* 0x04 */ ISceneNode* m_prev;
-    /* 0x08 */ ISceneNode* m_next;
+    /* 0x04 */ PTR32(ISceneNode) m_prev;  // the nodes keep these in u32 words
+    /* 0x08 */ PTR32(ISceneNode) m_next;
     /* 0x0C */ ISceneNode::SExtent* m_minX;
     /* 0x10 */ ISceneNode::SExtent* m_maxX;
     /* 0x14 */ ISceneNode::SExtent* m_minY;
@@ -49,6 +54,23 @@ static inline SSceneNodeView* View(const ISceneNode* node) {
 }
 
 // The static, animated-object and light lists link through these words.
+#ifdef FRONTLINE_NATIVE
+// Natively at the members' own offsets (lights keep theirs where animated
+// objects do).
+struct SStaticLinks {
+    u8 unk_0x0[offsetof(CStaticObject, m_pPrevStatic)];
+    CStaticObject* m_prev;
+    CStaticObject* m_next;
+};
+struct SAnimLinks {
+    u8 unk_0x0[offsetof(CAnimObject, m_pPrevAnim)];
+    void* m_prev;
+    void* m_next;
+};
+static_assert(offsetof(SStaticLinks, m_next) == offsetof(CStaticObject, m_pNextStatic), "static links");
+static_assert(offsetof(SAnimLinks, m_next) == offsetof(CAnimObject, m_pNextAnim), "anim links");
+static_assert(offsetof(SAnimLinks, m_prev) == offsetof(CLight, field_0x24), "light links");
+#else
 struct SStaticLinks {
     /* 0x00 */ u8 unk_0x0[0x28];
     /* 0x28 */ CStaticObject* m_prev;
@@ -59,6 +81,7 @@ struct SAnimLinks {
     /* 0x24 */ void* m_prev;
     /* 0x28 */ void* m_next;
 };
+#endif
 
 // Exclusions end: players touching the pair fall again.
 static inline void WakePlayers(const CScene::SExclusionEntry& e) {
@@ -98,10 +121,10 @@ static inline void PushCollision(dwi::vector<CCollision>& v, const CCollision& c
 }
 
 static inline bool PairLess(const CScene::UNodePair& a, const CScene::UNodePair& b) {
-    if ((u32)a.m_a != (u32)b.m_a) {
-        return (u32)a.m_a < (u32)b.m_a;
+    if ((uptr)(a.m_a) != (uptr)(b.m_a)) {
+        return (uptr)(a.m_a) < (uptr)(b.m_a);
     }
-    return (u32)a.m_b < (u32)b.m_b;
+    return (uptr)(a.m_b) < (uptr)(b.m_b);
 }
 
 static inline bool PairEqual(const CScene::UNodePair& a, const CScene::UNodePair& b) {
@@ -324,7 +347,7 @@ static void SweepExtents(ExtentList& list, dwi::fast_vec<CScene::UNodePair>& pai
                 if (type != 0) {
                     ISceneNode* a;
                     ISceneNode* b;
-                    if ((u32)*o < (u32)node) {
+                    if ((uptr)(*o) < (uptr)(node)) {
                         a = *o;
                         b = node;
                     } else {
@@ -338,7 +361,7 @@ static void SweepExtents(ExtentList& list, dwi::fast_vec<CScene::UNodePair>& pai
                     }
                     if (e == eEnd) {
                         CScene::UNodePair pair;
-                        if ((u32)*o < (u32)node) {
+                        if ((uptr)(*o) < (uptr)(node)) {
                             pair.m_a = *o;
                             pair.m_b = node;
                         } else {
@@ -501,7 +524,7 @@ void CScene::Draw(CViewport& viewport, CScreen& screen, CRenderList&, CFog& fog)
                      screen.GetTMViewToScreen(), viewport.m_index);
     camera = m_camera;
     ctx.m_pCamera = camera;
-    ctx.field_0xD8 = (u32)&fog;
+    ctx.field_0xD8 = (uptr)&fog;
     ctx.m_pLights = (CLightDrawList*)&m_lights;
     ctx.m_pShadows = (CShadowDrawList*)&m_shadows;
     camera->m_frustum.Set(*camera, screen, viewport);
@@ -716,7 +739,7 @@ bool CScene::VisitAllStaticObjects(dwi::IVisitor<ISceneNode>& visitor) {
 void CScene::IncludeCollision(const ISceneNode& n0, const ISceneNode& n1) {
     const ISceneNode* a;
     const ISceneNode* b;
-    if ((u32)&n0 < (u32)&n1) {
+    if ((uptr)(&n0) < (uptr)(&n1)) {
         a = &n0;
         b = &n1;
     } else {
@@ -738,7 +761,7 @@ void CScene::IncludeCollision(const ISceneNode& n0, const ISceneNode& n1) {
 void CScene::ExcludeCollision(const ISceneNode& n0, const ISceneNode& n1, int frames) {
     const ISceneNode* a;
     const ISceneNode* b;
-    if ((u32)&n0 < (u32)&n1) {
+    if ((uptr)(&n0) < (uptr)(&n1)) {
         a = &n0;
         b = &n1;
     } else {

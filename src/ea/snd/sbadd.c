@@ -21,6 +21,11 @@ extern "C" int SNDbankadd(int* bank, void* data) {
     BANKVER5* hdr = (BANKVER5*)data;
     SNDBANKSLOT* slot;
 
+#ifdef FRONTLINE_NATIVE
+    if (SNDBankHeaderFromBigEndian(hdr)) {
+        SNDBankFromBigEndian(hdr);
+    }
+#endif
     sndgs.restoreHook3 = (void (*)(int))SNDbankremove;
     *bank = SNDBANKI_alloc();
     slot = &sndgs.banks[*bank];

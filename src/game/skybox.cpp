@@ -76,7 +76,7 @@ void CSkyBoxRenderBin::Link(CDmaTag* tag, CDmaPacket& packet) {
     GXSetTevAlphaOp(0, 0, 0, 0, 1, 0);
     for (; tag != NULL; tag = tag->m_next) {
         u32* data = (u32*)tag->m_data;
-        CSkyBox* sky = (CSkyBox*)data[0];
+        CSkyBox* sky = ADDR_TO_PTR(CSkyBox, data[0]);
         int face = data[1];
         f32 mtx[3][4];
         sky->m_view.GetGAMECUBEMatrix34(mtx);
@@ -96,7 +96,7 @@ void CSkyBoxRenderBin::Link(CDmaTag* tag, CDmaPacket& packet) {
 
 int CSkyBoxRenderBin::Render(CDmaPacket& packet, void* data) {
     m_pSkyBox = (CSkyBox*)data;
-    *(CSkyBox**)packet.m_ptr = m_pSkyBox;
+    *(PTR32(CSkyBox)*)packet.m_ptr = m_pSkyBox;
     packet.m_ptr += 4;
     *(int*)packet.m_ptr = m_face;
     packet.m_ptr += 4;
@@ -168,7 +168,7 @@ void CSkyBox::SetTextures() {
         return;
     }
     for (int i = 0; i < NUM_FACES; i++) {
-        m_files[i] = TLT_LoadFileFromLevelBigFile((const char*)res->fields[1 + i].value, NULL);
+        m_files[i] = TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(const char, res->fields[1 + i].value), NULL);
     }
     for (int i = 0; i < NUM_FACES; i++) {
         if (m_files[i] != NULL) {

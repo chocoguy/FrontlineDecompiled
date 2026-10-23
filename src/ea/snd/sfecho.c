@@ -19,7 +19,7 @@ void SFILTER_modifyECHO(ECHOSTATE* s, int* params) {
     s->len = SNDI_findmult16(ms, rate);
     u32 bytes = s->len * 4;
     s->mem = SNDMEMI_allocz(bytes + 16);
-    s->buf = (f32*)(((u32)s->mem + 15) & ~15);
+    s->buf = (f32*)(((uptr)(s->mem) + 15) & ~15);
     memset(s->buf, 0, bytes);
     s->pos = 0;
 }

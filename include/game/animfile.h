@@ -20,10 +20,11 @@ struct AnimFileFormat_t {
     /* 0x0A */ u16 fileNum;
     /* 0x0C */ u16 numFrames;
     /* 0x0E */ u16 field_0xE;
-    /* 0x10 */ AnimEmotStateList_t* states;
-    /* 0x14 */ AnimEmotAnimList_t* anims;
-    /* 0x18 */ u8** frames;  // numFrames + 1 (the end); ARAM addresses after the upload
+    /* 0x10 */ PTR32(AnimEmotStateList_t) states;
+    /* 0x14 */ PTR32(AnimEmotAnimList_t) anims;
+    /* 0x18 */ PTR32(PTR32(u8)) frames;  // numFrames + 1 (the end); ARAM addresses after the upload
 };
+FILE_SIZE_ASSERT(AnimFileFormat_t, 0x1C);
 
 // Per-animation data for its state's callback (anim_callback.cpp); the
 // layout after the header depends on the callback (AnimPlug*_t there).
@@ -66,8 +67,9 @@ struct AnimTranEntry_t {
     /* 0x6 */ u16 lo;
     /* 0x8 */ u16 hi;
     /* 0xA */ u8 unk_0xA[0x2];
-    /* 0xC */ AnimTransition_t* transition;
+    /* 0xC */ PTR32(AnimTransition_t) transition;
 };
+FILE_SIZE_ASSERT(AnimTranEntry_t, 0x10);
 
 struct AnimTranList_t {
     /* 0x0 */ s32 count;
@@ -93,8 +95,9 @@ struct AnimTranTransListArray_t {
 struct AnimEmotAnimRef_t {
     /* 0x0 */ u16 animIndex;
     /* 0x2 */ u16 field_0x2;
-    /* 0x4 */ AnimFilePluginData_t* plugin;
+    /* 0x4 */ PTR32(AnimFilePluginData_t) plugin;
 };
+FILE_SIZE_ASSERT(AnimEmotAnimRef_t, 0x8);
 struct AnimEmotStateAnims_t {
     /* 0x0 */ u32 count;
     /* 0x4 */ AnimEmotAnimRef_t anims[1];
@@ -105,10 +108,11 @@ struct AnimEmotStateDef_t {
     /* 0x00 */ u16 state;
     /* 0x02 */ u16 field_0x2;
     /* 0x04 */ s32 callback;  // callback id; an index after relocation
-    /* 0x08 */ AnimEmotStateAnims_t* anims;
-    /* 0x0C */ AnimFilePluginData_t* info;  // AnimFileGetStateInfo
-    /* 0x10 */ AnimTranList_t* transitions;
+    /* 0x08 */ PTR32(AnimEmotStateAnims_t) anims;
+    /* 0x0C */ PTR32(AnimFilePluginData_t) info;  // AnimFileGetStateInfo
+    /* 0x10 */ PTR32(AnimTranList_t) transitions;
 };
+FILE_SIZE_ASSERT(AnimEmotStateDef_t, 0x14);
 struct AnimEmotStateList_t {
     /* 0x0 */ u32 count;
     /* 0x4 */ AnimEmotStateDef_t states[1];
@@ -121,12 +125,12 @@ struct AnimEmotAnimation_t {
     /* 0x1 */ u8 unk_0x1;
     /* 0x2 */ u8 flags;
     /* 0x3 */ u8 unk_0x3;
-    /* 0x4 */ AnimFrameInfo_t* frameInfo;
+    /* 0x4 */ PTR32(AnimFrameInfo_t) frameInfo;
     /* 0x8 */ u16 program[1];
 };
 struct AnimEmotAnimList_t {
     /* 0x0 */ u32 count;
-    /* 0x4 */ AnimEmotAnimation_t* anims[1];
+    /* 0x4 */ PTR32(AnimEmotAnimation_t) anims[1];
 };
 
 // An animation in a file.
@@ -145,9 +149,10 @@ struct AnimJointGroups_t {
 #define ANIMFRAMEINFO_MAGIC 0x534B454C  // 'SKEL'
 struct AnimFrameInfo_t {
     /* 0x0 */ u32 magic;  // ANIMFRAMEINFO_MAGIC
-    /* 0x4 */ u8* basePose;  // 2-byte header, then 3 little-endian s16 per joint
-    /* 0x8 */ AnimJointGroups_t* groups;  // joints whose frames carry deltas
+    /* 0x4 */ PTR32(u8) basePose;  // 2-byte header, then 3 little-endian s16 per joint
+    /* 0x8 */ PTR32(AnimJointGroups_t) groups;  // joints whose frames carry deltas
 };
+FILE_SIZE_ASSERT(AnimFrameInfo_t, 0xC);
 
 // An animation: a program of frame indices and opcodes (see animseq.cpp).
 struct AnimSeqFrameList_t {
@@ -155,7 +160,7 @@ struct AnimSeqFrameList_t {
     /* 0x1 */ u8 unk_0x1;
     /* 0x2 */ u8 flags;
     /* 0x3 */ u8 unk_0x3;
-    /* 0x4 */ AnimFrameInfo_t* frameInfo;
+    /* 0x4 */ PTR32(AnimFrameInfo_t) frameInfo;  // same layout as AnimEmotAnimation_t
     /* 0x8 */ u16 program[1];
 };
 

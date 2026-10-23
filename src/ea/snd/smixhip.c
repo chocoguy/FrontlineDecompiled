@@ -6,7 +6,7 @@ extern "C" void MIX_sethighpass(int voice, int freq) {
     SNDMIXVOICE* mv = &sndmix.voices[voice];
     if (freq > 0) {
         if (mv->hpf == NULL) {
-            mv->hpf = (HPFSTATE*)SNDMEMI_allocz(0x58);
+            mv->hpf = (HPFSTATE*)SNDMEMI_allocz(GC_SIZE(0x58, sizeof(HPFSTATE)));
             ((SFILTER*)mv->hpf)->destroy = NULL;
             ((SFILTER*)mv->hpf)->order = 0x50;
             SFILTER_createHPFFIR8(mv->hpf);

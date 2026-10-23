@@ -113,10 +113,17 @@ static inline s32* AEMS_outputsrc(AEMSCOMPDYNAMIC* d, int output) {
     } else if (kind == 0) {
         src = &d->comp->p[0];
     } else if (kind == 2) {
-        src = (s32*)d->out + output;
+        src = ADDR_TO_PTR(s32, d->out) + output;
     }
     return src;
 }
+
+// field += base: a file offset (a PTR32 field natively) becomes a pointer.
+#ifdef FRONTLINE_NATIVE
+#define AEMS_RELOCATE(field, T, base) NativeRelocate(field, PTR_TO_ADDR(base))
+#else
+#define AEMS_RELOCATE(field, T, base) field = (T*)((u8*)field + (u32)(base))
+#endif
 
 void SNDAEMSI_restore() {
     SNDAEMS_removesystem();
@@ -127,6 +134,9 @@ int SNDAEMSI_addsystem(void* data) {
     AEMSSYSTEM* sys = (AEMSSYSTEM*)data;
     int i;
 
+#ifdef FRONTLINE_NATIVE
+    AEMSSystemFromBigEndian(sys);
+#endif
     SNDAEMS_linkbank();
     SNDSYS_entercritical();
     sndaems.system = sys;
@@ -137,29 +147,29 @@ int SNDAEMSI_addsystem(void* data) {
     sndaems.system = sys;
     sndaems.numSendClients = 0;
 
-    sys->params = (AEMSPARAM*)((u8*)sys + (u32)sys->params);
-    sndaems.system->trigs = (AEMSTRIG*)((u8*)sys + (u32)sndaems.system->trigs);
-    sndaems.system->events = (AEMSEVENT*)((u8*)sys + (u32)sndaems.system->events);
-    sndaems.system->globals = (AEMSLINKLIST*)((u8*)sys + (u32)sndaems.system->globals);
+    sys->params = (AEMSPARAM*)((u8*)sys + (u32)PTR_TO_ADDR(sys->params));
+    sndaems.system->trigs = (AEMSTRIG*)((u8*)sys + (u32)PTR_TO_ADDR(sndaems.system->trigs));
+    sndaems.system->events = (AEMSEVENT*)((u8*)sys + (u32)PTR_TO_ADDR(sndaems.system->events));
+    sndaems.system->globals = (AEMSLINKLIST*)((u8*)sys + (u32)PTR_TO_ADDR(sndaems.system->globals));
     for (i = 0; i < sndaems.system->numEvents; i++) {
         AEMSEVENT* ev = &sndaems.system->events[i];
         int j;
-        ev->params = (AEMSLINKLIST*)((u8*)sys + (u32)ev->params);
+        ev->params = (AEMSLINKLIST*)((u8*)sys + (u32)PTR_TO_ADDR(ev->params));
         for (j = 0; j < ev->numParams; j++) {
-            ev->params[j].indices = (s32*)((u8*)sys + (u32)ev->params[j].indices);
+            ev->params[j].indices = (s32*)((u8*)sys + (u32)PTR_TO_ADDR(ev->params[j].indices));
         }
-        ev->begin.indices = (s32*)((u8*)sys + (u32)ev->begin.indices);
-        ev->update.indices = (s32*)((u8*)sys + (u32)ev->update.indices);
-        ev->end.indices = (s32*)((u8*)sys + (u32)ev->end.indices);
+        ev->begin.indices = (s32*)((u8*)sys + (u32)PTR_TO_ADDR(ev->begin.indices));
+        ev->update.indices = (s32*)((u8*)sys + (u32)PTR_TO_ADDR(ev->update.indices));
+        ev->end.indices = (s32*)((u8*)sys + (u32)PTR_TO_ADDR(ev->end.indices));
     }
     for (i = 0; i < sndaems.system->numGlobals; i++) {
-        sndaems.system->globals[i].indices = (s32*)((u8*)sys + (u32)sndaems.system->globals[i].indices);
+        sndaems.system->globals[i].indices = (s32*)((u8*)sys + (u32)PTR_TO_ADDR(sndaems.system->globals[i].indices));
     }
     if (sndaems.system->numGlobals > 0) {
         sndaems.globals = (s32*)SNDMEMI_allocz(sndaems.system->numGlobals << 2);
         memset(sndaems.globals, 0, sndaems.system->numGlobals << 2);
     }
-    sndaems.banks = (MODULEBANK**)SNDMEMI_allocz(0x40);
+    sndaems.banks = (PTR32(MODULEBANK)*)SNDMEMI_allocz(0x40);
     memset(sndaems.banks, 0, 0x40);
     SNDSYS_leavecritical();
     return 0;
@@ -194,20 +204,24 @@ void SNDAEMSI_resolvemodulebank(MODULEBANK* bank, char* streamFile, int streamOf
     int i;
     int m;
 
+#ifdef FRONTLINE_NATIVE
+    AEMSBankHeaderFromBigEndian(bank);
+    AEMSBankFromBigEndian(bank);
+#endif
     SNDSYS_entercritical();
     bank->rt = (MODULEBANKRT*)SNDMEMI_allocz(0x10);
     memset(bank->rt, 0, 0x10);
     if (bank->entries != NULL) {
-        bank->entries = (AEMSBANKENTRY*)((u8*)bank->entries + (u32)bank);
+        AEMS_RELOCATE(bank->entries, AEMSBANKENTRY, bank);
         for (i = 0; i < bank->numEntries; i++) {
-            bank->entries[i].data = (u8*)bank->entries[i].data + (u32)bank;
+            AEMS_RELOCATE(bank->entries[i].data, u8, bank);
             bank->entries[i].unk_0x0 = 0;
         }
     }
     if (bank->version >= 5 && bank->streams != NULL) {
-        bank->streams = (AEMSSTREAMENTRY*)((u8*)bank->streams + (u32)bank);
+        AEMS_RELOCATE(bank->streams, AEMSSTREAMENTRY, bank);
     }
-    bank->modules = (MODULE*)((u8*)bank->modules + (u32)bank);
+    AEMS_RELOCATE(bank->modules, MODULE, bank);
 
     for (m = 0; m < bank->numModules; m++) {
         MODULE* module = AEMS_module(bank, m);
@@ -217,37 +231,37 @@ void SNDAEMSI_resolvemodulebank(MODULEBANK* bank, char* streamFile, int streamOf
 
         module->rt = (MODULERT*)SNDMEMI_allocz(0xC);
         module->rt->count = 0;
-        module->rt->instances = (MODULEINSTANCE**)SNDMEMI_allocz(module->numInstances << 2);
+        module->rt->instances = (PTR32(MODULEINSTANCE)*)SNDMEMI_allocz(module->numInstances << 2);
         for (i = 0; i < module->numInstances; i++) {
             module->rt->instances[i] = NULL;
         }
         module->rt->compOffsets = (s32*)SNDMEMI_allocz(module->numComps << 2);
-        module->comps = (AEMSCOMP*)((u8*)module->comps + (u32)bank);
+        AEMS_RELOCATE(module->comps, AEMSCOMP, bank);
         comp = module->comps;
         offset = 0;
         for (c = 0; c < module->numComps; c++) {
-            comp->outputs = (AEMSOUTPUT*)((u8*)comp->outputs + (u32)bank);
+            AEMS_RELOCATE(comp->outputs, AEMSOUTPUT, bank);
             for (i = 0; i < comp->numOutputs; i++) {
-                comp->outputs[i].targets = (AEMSTARGET*)((u8*)bank + (u32)comp->outputs[i].targets);
+                comp->outputs[i].targets = (AEMSTARGET*)((u8*)bank + (u32)PTR_TO_ADDR(comp->outputs[i].targets));
             }
             if (comp->type == AEMSCOMP_PLAYER) {
                 AEMSPLAYERTABLE* table;
-                comp->p[0] += (u32)bank;
-                table = (AEMSPLAYERTABLE*)comp->p[0];
-                if ((u32)table->entries < (u32)bank) {
-                    table->entries = (u32*)((u8*)table->entries + (u32)bank);
+                comp->p[0] += (u32)PTR_TO_ADDR(bank);
+                table = ADDR_TO_PTR(AEMSPLAYERTABLE, comp->p[0]);
+                if ((u32)PTR_TO_ADDR(table->entries) < (u32)PTR_TO_ADDR(bank)) {
+                    AEMS_RELOCATE(table->entries, u32, bank);
                 }
-                comp->p[1] = (s32)bank;
+                comp->p[1] = (s32)PTR_TO_ADDR(bank);
             } else if (comp->type == AEMSCOMP_ENVELOPE) {
-                comp->p[0] += (u32)bank;
+                comp->p[0] += (u32)PTR_TO_ADDR(bank);
             } else if (comp->type == AEMSCOMP_RANDOM && comp->p[2] != 0) {
-                comp->p[2] += (u32)bank;
+                comp->p[2] += (u32)PTR_TO_ADDR(bank);
             } else if (comp->type == AEMSCOMP_TABLE) {
-                comp->p[0] += (u32)bank;
+                comp->p[0] += (u32)PTR_TO_ADDR(bank);
             } else if (comp->type == AEMSCOMP_TABLE2) {
-                comp->p[0] += (u32)bank;
+                comp->p[0] += (u32)PTR_TO_ADDR(bank);
             } else if (comp->type == AEMSCOMP_STATEGEN) {
-                comp->p[1] += (u32)bank;
+                comp->p[1] += (u32)PTR_TO_ADDR(bank);
             }
             module->rt->compOffsets[c] = offset;
             offset += aemscompinfo[comp->type].dynamicSize;
@@ -713,7 +727,7 @@ void SNDAEMSI_updateplayer(AEMSCOMPDYNAMIC* dyn, MODULE* module) {
         d->in[2] = 0;
     }
     if (d->lastGate != d->in[7] && d->in[7] == 1 && d->lastGate == 0) {
-        AEMSPLAYERTABLE* table = (AEMSPLAYERTABLE*)comp->p[0];
+        AEMSPLAYERTABLE* table = ADDR_TO_PTR(AEMSPLAYERTABLE, comp->p[0]);
         int index = d->in[6];
         if (index >= table->count) {
             index = table->count - 1;
@@ -755,7 +769,7 @@ void AEMSI_updaterangetrig(AEMSCOMPDYNAMIC* d, MODULE* module) {
 // s[0] time in the segment, s[1] low half: segment, high half: last gate; s[2] segment start.
 void AEMSI_updateenvelope(AEMSCOMPDYNAMIC* d, MODULE* module) {
     AEMSCOMP* comp = d->comp;
-    SNDENVSEG* points = (SNDENVSEG*)comp->p[0];
+    SNDENVSEG* points = ADDR_TO_PTR(SNDENVSEG, comp->p[0]);
     s16 numPoints = ((s16*)comp->p)[2];
     s16 sustain = ((s16*)comp->p)[3];
     s16* seg = &((s16*)&d->s[1])[0];
@@ -828,7 +842,7 @@ void AEMSI_updaterandom(AEMSCOMPDYNAMIC* d, MODULE* module) {
     if (d->in[0] > 0 && d->s[2] == 0) {
         mode = *(u8*)&comp->p[3];
         if (mode == 2) {
-            u16* counts = (u16*)d->s[0];
+            u16* counts = ADDR_TO_PTR(u16, d->s[0]);
             s16* round = (s16*)&d->s[1];
             u32 range = comp->p[1] + 1 - comp->p[0];
             int start = iSNDrandom() % range;
@@ -865,7 +879,7 @@ void AEMSI_updaterandom(AEMSCOMPDYNAMIC* d, MODULE* module) {
             int i;
             if (n >= 0) {
                 for (i = 0; i < n + 1; i++) {
-                    sum += ((u8*)comp->p[2])[i];
+                    sum += (ADDR_TO_PTR(u8, comp->p[2]))[i];
                     if (sum > (int)r) {
                         d->out = i + comp->p[0];
                         break;
@@ -895,9 +909,9 @@ void AEMSI_updatedemux(AEMSCOMPDYNAMIC* d, MODULE* module) {
     int i;
     for (i = 0; i < comp->p[0]; i++) {
         if (i == d->in[0] - 1) {
-            ((s32*)d->out)[i] = d->in[1];
+            (ADDR_TO_PTR(s32, d->out))[i] = d->in[1];
         } else {
-            ((s32*)d->out)[i] = 0;
+            (ADDR_TO_PTR(s32, d->out))[i] = 0;
         }
     }
 }
@@ -970,7 +984,7 @@ void AEMSI_updatetable(AEMSCOMPDYNAMIC* d, MODULE* module) {
         d->out = max;
     }
     d->out = (size - 1) * (d->out - min) / (max - min);
-    d->out = ((s16*)comp->p[0])[d->out];
+    d->out = (ADDR_TO_PTR(s16, comp->p[0]))[d->out];
 }
 
 // Lookup in a table of p4-byte entries (4, 2 or 1) spread over [p2, p3].
@@ -985,11 +999,11 @@ void AEMSI_updatetable2(AEMSCOMPDYNAMIC* d, MODULE* module) {
     }
     d->out = comp->p[1] * (d->out - comp->p[2]) / (comp->p[3] - comp->p[2] + 1);
     if (comp->p[4] == 4) {
-        d->out = ((s32*)comp->p[0])[d->out];
+        d->out = (ADDR_TO_PTR(s32, comp->p[0]))[d->out];
     } else if (comp->p[4] == 2) {
-        d->out = ((s16*)comp->p[0])[d->out];
+        d->out = (ADDR_TO_PTR(s16, comp->p[0]))[d->out];
     } else {
-        d->out = ((s8*)comp->p[0])[d->out];
+        d->out = (ADDR_TO_PTR(s8, comp->p[0]))[d->out];
     }
 }
 
@@ -1022,18 +1036,18 @@ void AEMSI_updatedelaytrig(AEMSCOMPDYNAMIC* d, MODULE* module) {
 // s[0] the ring, s[1] write position, s[2] read position.
 void AEMSI_updatedelayline(AEMSCOMPDYNAMIC* d, MODULE* module) {
     AEMSCOMP* comp = d->comp;
-    s16* ring = (s16*)d->s[0];
+    s16* ring = ADDR_TO_PTR(s16, d->s[0]);
     s16* write;
     s16* read;
     int n;
     int delay;
 
-    write = (s16*)d->s[1] + 1;
-    d->s[1] = (s32)write;
-    if ((u32)write >= (u32)(ring + comp->p[0] / sndaems.tickMs)) {
-        d->s[1] = (s32)ring;
+    write = ADDR_TO_PTR(s16, d->s[1]) + 1;
+    d->s[1] = (s32)PTR_TO_ADDR(write);
+    if ((u32)PTR_TO_ADDR(write) >= (u32)PTR_TO_ADDR((ring + comp->p[0] / sndaems.tickMs))) {
+        d->s[1] = (s32)PTR_TO_ADDR(ring);
     }
-    write = (s16*)d->s[1];
+    write = ADDR_TO_PTR(s16, d->s[1]);
     *write = d->in[0];
     n = comp->p[0] / sndaems.tickMs;
     delay = d->in[1] / sndaems.tickMs;
@@ -1042,10 +1056,10 @@ void AEMSI_updatedelayline(AEMSCOMPDYNAMIC* d, MODULE* module) {
     } else {
         read = write - delay;
     }
-    if ((u32)read < (u32)ring) {
+    if ((u32)PTR_TO_ADDR(read) < (u32)PTR_TO_ADDR(ring)) {
         read += comp->p[0] / sndaems.tickMs;
     }
-    d->s[2] = (s32)read;
+    d->s[2] = (s32)PTR_TO_ADDR(read);
     d->out = *read;
 }
 
@@ -1078,11 +1092,11 @@ void AEMSI_updatemin(AEMSCOMPDYNAMIC* d, MODULE* module) {
 // Outputs value i of the table at p1 when input i rises. s[0] the last inputs (s16).
 void AEMSI_updatestategen(AEMSCOMPDYNAMIC* d, MODULE* module) {
     AEMSCOMP* comp = d->comp;
-    s16* last = (s16*)d->s[0];
+    s16* last = ADDR_TO_PTR(s16, d->s[0]);
     int i;
     for (i = 0; i < comp->p[0]; i++) {
         if (last[i] <= 0 && d->in[i] > 0) {
-            d->out = ((s16*)comp->p[1])[i];
+            d->out = (ADDR_TO_PTR(s16, comp->p[1]))[i];
         }
         last[i] = d->in[i];
     }
@@ -1099,7 +1113,7 @@ void SNDAEMSI_updatedestroy(AEMSCOMPDYNAMIC* d, MODULE* module) {
 // clients. s[0] the instance handle, s[1] the last inputs.
 void SNDAEMSI_updatesend(AEMSCOMPDYNAMIC* d, MODULE* module) {
     AEMSCOMP* comp = d->comp;
-    s32* last = (s32*)d->s[1];
+    s32* last = ADDR_TO_PTR(s32, d->s[1]);
     int changed = 0;
     int i;
 
@@ -1126,8 +1140,8 @@ void SNDAEMSI_updatesend(AEMSCOMPDYNAMIC* d, MODULE* module) {
 // Linear ramp to in[2] over in[0] ms, stepped in[1] times per pass. s[0] ramp time, s[1]
 // start, s[2] target, s[8] step, s[9] value (s64s, 8-aligned in the block).
 void SNDAEMSI_updateramp(AEMSCOMPDYNAMIC* d, MODULE* module) {
-    s64* step = (s64*)d->s[8];
-    s64* acc = (s64*)d->s[9];
+    s64* step = ADDR_TO_PTR(s64, d->s[8]);
+    s64* acc = ADDR_TO_PTR(s64, d->s[9]);
 
     if (d->in[2] == d->out) {
         return;
@@ -1237,26 +1251,26 @@ int SNDAEMSI_createinstance(MODULEBANK* bank, MODULE* module, int handle) {
         d->in = (s32*)extra;
         extra += comp->numInputs << 2;
         if (comp->type == AEMSCOMP_DEMUX) {
-            d->out = (s32)extra;
+            d->out = (s32)PTR_TO_ADDR(extra);
             extra += comp->p[0] << 2;
         } else if (comp->type == AEMSCOMP_DELAYLINE) {
-            d->s[0] = (s32)extra;
+            d->s[0] = (s32)PTR_TO_ADDR(extra);
             extra += (comp->p[0] / sndaems.tickMs + 1) << 1;
-            if ((u32)extra & 2) {
+            if ((u32)PTR_TO_ADDR(extra) & 2) {
                 extra += 2;
             }
             d->s[1] = d->s[0];
             d->s[2] = d->s[0];
         } else if (comp->type == AEMSCOMP_RANDOM && comp->p[2] == 0 && *(u8*)&comp->p[3] == 2) {
-            d->s[0] = (s32)extra;
+            d->s[0] = (s32)PTR_TO_ADDR(extra);
             extra += (comp->p[1] - comp->p[0] + 1) << 1;
-            if ((u32)extra & 2) {
+            if ((u32)PTR_TO_ADDR(extra) & 2) {
                 extra += 2;
             }
         } else if (comp->type == AEMSCOMP_STATEGEN) {
-            d->s[0] = (s32)extra;
+            d->s[0] = (s32)PTR_TO_ADDR(extra);
             extra += comp->p[0] << 1;
-            if ((u32)extra & 2) {
+            if ((u32)PTR_TO_ADDR(extra) & 2) {
                 extra += 2;
             }
         } else if (comp->type == AEMSCOMP_DELAYTRIG) {
@@ -1265,10 +1279,10 @@ int SNDAEMSI_createinstance(MODULEBANK* bank, MODULE* module, int handle) {
             d->s[0] = handle;
         } else if (comp->type == AEMSCOMP_SEND) {
             d->s[0] = handle;
-            d->s[1] = (s32)extra;
+            d->s[1] = (s32)PTR_TO_ADDR(extra);
             extra += comp->p[0] << 2;
         } else if (comp->type == AEMSCOMP_RAMP) {
-            d->s[8] = ((u32)d + 0x27) & ~7;
+            d->s[8] = ((u32)PTR_TO_ADDR(d) + 0x27) & ~7;
             d->s[9] = d->s[8] + 8;
         } else if (comp->type == AEMSCOMP_COUNTER) {
             if (*(u8*)&comp->p[2] != 0) {
@@ -1385,7 +1399,7 @@ void SNDAEMSI_reordermodule(MODULE* module, MODULEINSTANCE* inst) {
         d->scheduled = 0;
         d = AEMS_nextdyn(d);
     }
-    inst->exec = (AEMSCOMPDYNAMIC**)SNDMEMI_allocz((module->numComps << 2) + (total << 3));
+    inst->exec = (PTR32(AEMSCOMPDYNAMIC)*)SNDMEMI_allocz((module->numComps << 2) + (total << 3));
     if (total != 0) {
         inst->links = (AEMSLINK*)((u8*)inst->exec + (module->numComps << 2));
     } else {
@@ -1452,13 +1466,13 @@ void SNDAEMSI_reordermodule(MODULE* module, MODULEINSTANCE* inst) {
 
 // Version 8 banks are stored in update order; the last component is the destroy.
 void SNDAEMSI_reordermodule2(MODULE* module, MODULEINSTANCE* inst) {
-    AEMSCOMPDYNAMIC** exec;
+    PTR32(AEMSCOMPDYNAMIC)* exec;
     AEMSCOMPDYNAMIC* d;
     AEMSLINK* link;
     int c;
 
     inst->numExec = module->numExec;
-    inst->exec = (AEMSCOMPDYNAMIC**)SNDMEMI_allocz((module->numExec << 2) + (module->numLinks << 3));
+    inst->exec = (PTR32(AEMSCOMPDYNAMIC)*)SNDMEMI_allocz((module->numExec << 2) + (module->numLinks << 3));
     exec = inst->exec;
     if (module->numLinks != 0) {
         inst->links = (AEMSLINK*)((u8*)inst->exec + (module->numExec << 2));

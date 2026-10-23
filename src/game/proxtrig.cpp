@@ -55,13 +55,14 @@ struct TriggerData {
     /* 0x48 */ u32 m_kindCRC;
     /* 0x4C */ u8 unk_0x4C[0xC];
     // Message lists: [0] = count, then message ids.
-    /* 0x58 */ u32* m_playerEnter;
-    /* 0x5C */ u32* m_playerLeave;
-    /* 0x60 */ u32* m_objectEnter;
-    /* 0x64 */ u32* m_objectLeave;
-    /* 0x68 */ u32* m_playerActivate;
-    /* 0x6C */ u32* m_objectActivate;
+    /* 0x58 */ PTR32(u32) m_playerEnter;
+    /* 0x5C */ PTR32(u32) m_playerLeave;
+    /* 0x60 */ PTR32(u32) m_objectEnter;
+    /* 0x64 */ PTR32(u32) m_objectLeave;
+    /* 0x68 */ PTR32(u32) m_playerActivate;
+    /* 0x6C */ PTR32(u32) m_objectActivate;
 };
+FILE_SIZE_ASSERT(TriggerData, 0x70);
 
 static int g_PopUpMsgTimer;
 

@@ -107,7 +107,7 @@ int CThrownBullet::IsCollisionEnabled() const {
 }
 
 int CThrownBullet::GetAttachedLight() const {
-    return (int)m_pLight;
+    return (int)PTR_TO_ADDR(m_pLight);
 }
 
 float CThrownBullet::GetDamage() const {
@@ -424,7 +424,7 @@ static inline void Detonate(CThrownBullet* bullet, const CVector3& pos, bool gro
 // off); the others go off on contact, pulled back 5cm from the surface.
 int CThrownBullet::CommitUpdate() {
     if (m_dead) {
-        return;
+        RETURN_NOTHING;
     }
     switch (m_type) {
     case 3:
@@ -485,6 +485,7 @@ int CThrownBullet::CommitUpdate() {
         GetTMLocalToWorld(tm);
         ((IMovingSceneNode*)m_pLight)->SetTMLocalToWorld(tm);
     }
+    END_RETURN_NOTHING
 }
 
 void CreateExplosionEffect(const CMatrix& tm, bool ground, bool cheat) {
@@ -536,7 +537,7 @@ void CreateExplosionEffect(const CMatrix& tm, bool ground, bool cheat) {
 
 int CThrownBullet::AttemptUpdate(float dt) {
     if (m_dead) {
-        return;
+        RETURN_NOTHING;
     }
     field_0x94 = BIG_FLOAT;
     m_velocity = m_prevVelocity;
@@ -563,6 +564,7 @@ int CThrownBullet::AttemptUpdate(float dt) {
     m_pMinY->m_value = min.y - CONTACT_EPSILON;
     m_pMaxX->m_value = CONTACT_EPSILON + max.x;
     m_pMaxY->m_value = CONTACT_EPSILON + max.y;
+    END_RETURN_NOTHING
 }
 
 // Bouncers turn to face where they're going (keeping their right axis).
@@ -615,6 +617,7 @@ int CThrownBullet::BeginUpdate(float dt) {
         }
     }
     field_0x94 = BIG_FLOAT;
+    END_RETURN_NOTHING
 }
 
 // The bounce: reflect off the summed contact normal, keep m_bounce of the
@@ -712,6 +715,7 @@ int CThrownBullet::Penetrate(const CCollision& clsn) {
     ((CMatrix*)&m_rightward)->SetPos(next);
     m_collided = false;
     m_explode = false;
+    END_RETURN_NOTHING
 }
 
 void CThrownBullet::OnCollision(const CCollision& clsn) {

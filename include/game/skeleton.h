@@ -18,23 +18,25 @@ struct CharJointHierarchy_t {
     /* 0x1 */ u8 field_0x1;  // traversal stops once a subtree returns this value
     /* 0x2 */ u8 index;  // the joint
     /* 0x3 */ u8 unk_0x3;
-    /* 0x4 */ CharJointHierarchy_t* parent;  // the root is its own parent
-    /* 0x8 */ CharJointHierarchy_t* children[1];
+    /* 0x4 */ PTR32(CharJointHierarchy_t) parent;  // the root is its own parent
+    /* 0x8 */ PTR32(CharJointHierarchy_t) children[1];
 };
 
 // size 0x14
 struct CharJoint_t {
-    /* 0x0 */ CharJointHierarchy_t* node;
+    /* 0x0 */ PTR32(CharJointHierarchy_t) node;
     /* 0x4 */ char name[0x10];
 };
+FILE_SIZE_ASSERT(CharJoint_t, 0x14);
 
 // An attach point (hand, head, vision cone...): a named offset from a
 // joint (size 0x18).
 struct CharSkelMatrixEntry_t {
     /* 0x00 */ char name[0x10];
     /* 0x10 */ u32 joint;
-    /* 0x14 */ CMatrix* matrix;  // offset from the joint
+    /* 0x14 */ PTR32(CMatrix) matrix;  // offset from the joint
 };
+FILE_SIZE_ASSERT(CharSkelMatrixEntry_t, 0x18);
 
 // size 0x710
 // A joint's bind offset and parent (in the skeleton header). size 0x10
@@ -54,10 +56,10 @@ struct CharSkel_t {
     /* 0x000 */ u32 field_0x0;
     /* 0x004 */ u16 flags;  // CHARSKEL_RELOCATED once fixed up
     /* 0x006 */ u16 numJoints;
-    /* 0x008 */ CharJointHierarchy_t* root;
-    /* 0x00C */ CharJoint_t* joints;
+    /* 0x008 */ PTR32(CharJointHierarchy_t) root;
+    /* 0x00C */ PTR32(CharJoint_t) joints;
     /* 0x010 */ u32 numMatrices;
-    /* 0x014 */ CharSkelMatrixEntry_t* matrices;
+    /* 0x014 */ PTR32(CharSkelMatrixEntry_t) matrices;
     /* 0x018 */ u8 unk_0x18[0x8];
     union {
         /* 0x020 */ u32 table[0x50][4];
@@ -65,6 +67,7 @@ struct CharSkel_t {
     };
     /* 0x520 */ s16 jointOffsets[0x50][3];
 };
+FILE_SIZE_ASSERT(CharSkel_t, 0x700);
 
 // Swaps the header and its fixed tables (not the data the offsets point at).
 inline void EndianSwap(CharSkel_t& skel) {

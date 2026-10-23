@@ -2,6 +2,16 @@
 
 SNDENVSEG snddefaultenvelope[1] = {{0x7FFFFFFF, 0x7F}};
 
+// A tag's address: its data plus its value, or, when the timbre doesn't have
+// the tag, its default value (an address, as for the envelope, or 0). On the
+// console that's NULL + value; natively a null pointer plus a 32-bit address
+// isn't one.
+#ifdef FRONTLINE_NATIVE
+#define TAG_ADDR(i) (ptr[i] != NULL ? PTR_TO_ADDR(ptr[i]) + value[i] : (u32)value[i])
+#else
+#define TAG_ADDR(i) PTR_TO_ADDR((ptr[i] + value[i]))
+#endif
+
 // Parses one timbre's tags at *data into header and advances *data past them.
 // Returns 1 if another timbre follows (tag 0xFE), 0 at the end of the patch (0xFF).
 int SNDI_parsetimbre(void** data, SNDIPATCHHEADER* header) {
@@ -50,7 +60,7 @@ int SNDI_parsetimbre(void** data, SNDIPATCHHEADER* header) {
     value[0x13] = 0;
     header->numUserData = 0;
     value[0x17] = 0;
-    value[0x19] = (int)snddefaultenvelope;
+    value[0x19] = (int)PTR_TO_ADDR(snddefaultenvelope);
     value[0x1A] = -1;
     value[0x1C] = 0x7F;
     value[0x1D] = 0;
@@ -131,16 +141,16 @@ int SNDI_parsetimbre(void** data, SNDIPATCHHEADER* header) {
     header->volRand = value[0x0F];
     header->unk_0x4 = value[0x10];
     header->unk_0x6 = value[0x11];
-    header->unk_0x20 = (int)(ptr[0x12] + value[0x12]);
+    header->unk_0x20 = (int)TAG_ADDR(0x12);
     header->unk_0x16 = value[0x13];
-    header->unk_0x24 = (int)(ptr[0x17] + value[0x17]);
-    header->env = (SNDENVSEG*)(ptr[0x19] + value[0x19]);
+    header->unk_0x24 = (int)TAG_ADDR(0x17);
+    header->env = ADDR_TO_PTR(SNDENVSEG, TAG_ADDR(0x19));
     header->unk_0x78 = value[0x1A];
     header->unk_0x1A = value[0x1C];
-    header->unk_0x2C = (int)(ptr[0x1D] + value[0x1D]);
+    header->unk_0x2C = (int)TAG_ADDR(0x1D);
     header->unk_0x1B = value[0x1E];
     header->unk_0x1C = value[0x1F];
-    header->unk_0x30 = (int)(ptr[0x20] + value[0x20]);
+    header->unk_0x30 = (int)TAG_ADDR(0x20);
     header->unk_0x1D = value[0x21];
     header->unk_0x54 = value[0x22];
     header->unk_0x1E = value[0x23];

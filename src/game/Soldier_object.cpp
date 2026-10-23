@@ -502,7 +502,7 @@ void CSoldierObject::HandleBulletCollision(CBullet* bullet, const CCollision& cl
     const SClsnContact* contact = clsn.m_pContacts;
     u8 helmetHit = 0;
     event->m_pPoly = contact->m_pPoly;
-    int location = (int)event->m_pPoly;
+    int location = (int)PTR_TO_ADDR(event->m_pPoly);
     if (location < 9) {
         if (location == 2) {
             event->m_damage = (float)event->m_damage;
@@ -575,7 +575,7 @@ void CSoldierObject::HandleBulletCollision(CBullet* bullet, const CCollision& cl
         event->m_damage = 1000;
     }
     if (g_cheats.field_0xD) {
-        int loc = (int)event->m_pPoly;
+        int loc = (int)PTR_TO_ADDR(event->m_pPoly);
         if (loc != 0 && loc != 1) {
             event->m_damage = 0;
         }
@@ -584,7 +584,7 @@ void CSoldierObject::HandleBulletCollision(CBullet* bullet, const CCollision& cl
     if (firedBy != NULL && firedBy->AsPlayerObject() != NULL &&
         m_pScriptObject->m_trigger->m_data->m_team == 2 && event->m_burstHit < 2) {
         g_Shell.Set_hits(1, false);
-        switch ((int)event->m_pPoly) {
+        switch ((int)PTR_TO_ADDR(event->m_pPoly)) {
         case 3:
         case 4:
         case 5:
@@ -826,6 +826,7 @@ int CSoldierObject::AttemptUpdate(float dt) {
     CAnimObject::AttemptUpdate(dt);
     m_worldSphere1.TransformedCopy(m_localSphere1, m_tm);
     m_worldSphere2.TransformedCopy(m_localSphere2, m_tm);
+    END_RETURN_NOTHING
 }
 
 // Moves the upper body matrix along and runs the AI.
@@ -865,6 +866,7 @@ int CSoldierObject::BeginUpdate(float dt) {
         m_burstTimer = 0.0f;
         m_burstHits = 0;
     }
+    END_RETURN_NOTHING
 }
 
 // The weapon's muzzle flash at the held gun's muzzle (or the mounted gun's),
@@ -1397,6 +1399,7 @@ int CSoldierObject::Init() {
     m_headTransOffset.z = 0.0f;
     m_headTransOffset.y = 0.0f;
     m_headTransOffset.x = 0.0f;
+    END_RETURN_NOTHING
 }
 
 CSoldierObject::CSoldierObject() {}

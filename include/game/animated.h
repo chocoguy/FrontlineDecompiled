@@ -8,6 +8,12 @@
 #include "game_types.h"
 #include "game/animchan.h"
 #include "game/CVector4.h"
+#ifdef FRONTLINE_NATIVE
+#include <stddef.h>
+
+#include "game/dmcluster.h"
+#include "game/dmrender.h"
+#endif
 
 class CAnimMatrixCache;
 class CAnimObject;
@@ -40,6 +46,30 @@ public:
     /* 0xA38 */ u32 m_animFlags;
     /* 0xA3C */ u8 field_0xA3C;
     /* 0xA3D */ u8 unk_0xA3D[0x3];
+#ifdef FRONTLINE_NATIVE
+    // The render and cluster objects hold pointers, so natively they are
+    // bigger than the console's regions; these unions size them by the real
+    // structs and keep the names that alias their fields.
+    union {
+        u8 m_render[sizeof(DMRenderObject_T)];  // DMRenderObject_T
+        struct {
+            u8 pad_geom_[offsetof(DMRenderObject_T, m_geom)];
+            u8 m_geomState[sizeof(DMGeometryState_T)];
+        };
+        struct {
+            u8 pad_parts_[offsetof(DMRenderObject_T, m_numParts)];
+            u32 field_0xB90;  // m_numParts
+        };
+    };
+    union {
+        u8 m_clusterObject[sizeof(DMClusterObject_T)];  // DMClusterObject_T
+        struct {
+            u32 m_numClusterMatrices;
+            u8 pad_matrices_[offsetof(DMClusterObject_T, m_matrices) - 4];
+            void* m_clusterMatrices;  // m_matrices[0]
+        };
+    };
+#else
     /* 0xA40 */ u8 m_render[0x14];       // DMRenderObject_T
     /* 0xA54 */ u8 m_geomState[0xC4];    // DMGeometryState_T (part of the render object)
     /* 0xB18 */ CVector4 field_0xB18[3];
@@ -50,6 +80,7 @@ public:
     /* 0xCA0 */ u32 m_numClusterMatrices;  // DMClusterObject_T starts here
     /* 0xCA4 */ void* m_clusterMatrices;
     /* 0xCA8 */ u8 unk_0xCA8[0x8];
+#endif
     /* 0xCB0 */ CDMesh* m_pMesh;
     /* 0xCB4 */ CharSkel_t* m_pSkel;
     /* 0xCB8 */ CAnimObject* m_pOwner;

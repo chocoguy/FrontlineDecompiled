@@ -33,14 +33,17 @@ struct SNDMEMENTRY {
     s32 offset;
     s32 size;
 };
+// The header of the sound memory block (SNDMEMI_init): the allocations start
+// 0x18 bytes in, so the pointers are 32-bit natively too.
 struct SNDMEMPOOL {
-    /* 0x00 */ u8* base;
-    /* 0x04 */ SNDMEMENTRY* table;
+    /* 0x00 */ PTR32(u8) base;
+    /* 0x04 */ PTR32(SNDMEMENTRY) table;
     /* 0x08 */ s32 size;
     /* 0x0C */ s32 limit;     // end of allocatable space (shrinks as the table grows)
     /* 0x10 */ s32 lowwater;  // least free space seen
     /* 0x14 */ s32 count;     // -(number of allocations)
 };
+FILE_SIZE_ASSERT(SNDMEMPOOL, 0x18);
 
 // Envelope segment: reach `level` after `time` 100 Hz ticks.
 struct SNDENVSEG {
@@ -405,5 +408,93 @@ int SND3dpos(int handle, int azimuth, int distance);
 int SND_attrsetdef(SNDSAMPLEATTR* attr);
 void SNDI_memcpy(void* dest, const void* src, int size);
 }
+
+#ifdef FRONTLINE_NATIVE
+#include "native/swap.h"
+
+// Sample banks are big-endian ('BNKb'). Patches are tag streams, read a byte
+// at a time (SNDI_gettag), so they stay as they are; the native build swaps the
+// header and the patch data the CPU reads as numbers: envelopes, and the DSP
+// ADPCM coefficients and loop context the AX voices are given. Sample data goes
+// to ARAM as is (the platform's DSP decoder reads it big-endian).
+
+// The fixed header (the async loader reads the first block on its own).
+// Returns false if it was already swapped: the magic becomes EA's little-endian
+// 'BNKl'.
+inline bool SNDBankHeaderFromBigEndian(BANKVER5* bank) {
+    u8* b = bank->unk_0x0;
+    if (b[0] != 'B' || b[1] != 'N' || b[2] != 'K' || b[3] != 'b') {
+        return false;
+    }
+    b[3] = 'l';
+    NativeSwap16(&bank->numPatches);
+    NativeSwap32s(&bank->headerSize, 3);
+    return true;
+}
+
+// SNDI_getb, here so the swap needs nothing linked.
+inline int SNDBankGetb(const u8* p, int size) {
+    int value = 0;
+    for (int n = 0; n < size; n++) {
+        value = (value << 8) + p[n];
+    }
+    if (size > 0 && size < 4 && value >= (1 << (size * 8 - 1))) {
+        value -= 1 << (size * 8);
+    }
+    return value;
+}
+
+// The rest of the header. Call once per load, after SNDBankHeaderFromBigEndian
+// and with the whole header in memory.
+inline void SNDBankFromBigEndian(BANKVER5* bank) {
+    NativeSwapOnce once;
+    NativeSwap32s(bank->patchOffsets, bank->numPatches);
+    for (int i = 0; i < bank->numPatches; i++) {
+        if (bank->patchOffsets[i] == 0) {
+            continue;
+        }
+        // The tags after the patch's 4-byte header, timbre by timbre (as SNDI_parsetimbre).
+        u8* p = (u8*)&bank->patchOffsets[i] + bank->patchOffsets[i] + 4;
+        u8* env = 0;
+        int envSegs = 1;
+        for (;;) {
+            while (*p == 0xFC) {
+                p++;
+            }
+            u8 tag = *p++;
+            if (tag == 0xFE || tag == 0xFF) {
+                if (env != 0) {
+                    once.swap32s(env, envSegs * 2);
+                }
+                if (tag == 0xFF) {
+                    break;
+                }
+                env = 0;
+                envSegs = 1;
+                continue;
+            }
+            if (tag == 0xFD) {
+                continue;
+            }
+            u32 size = *p;
+            if (size == 0xFF) {
+                size = SNDBankGetb(p + 1, 4);
+                p += 4;
+            }
+            p++;
+            if (tag == 0x19) {  // envelope: at the data plus its value
+                env = p + SNDBankGetb(p, size);
+            } else if (tag == 0x09) {  // its segments
+                envSegs = SNDBankGetb(p, size);
+            } else if (tag == 0x8F || tag == 0x90 || tag == 0x91) {  // ADPCM coefficients, then a byte
+                once.swap16s(p, 16);
+            } else if (tag == 0x8D || tag == 0x8E || tag == 0x8B) {  // loop yn1, yn2, then a byte
+                once.swap16s(p, 2);
+            }
+            p += size;
+        }
+    }
+}
+#endif
 
 #endif

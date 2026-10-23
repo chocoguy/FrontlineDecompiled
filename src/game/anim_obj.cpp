@@ -121,6 +121,7 @@ int CAnimObject::Init() {
     m_footstepSound = 1;
     m_noGround = 0;
     field_0x30D8 = 0.0f;
+    END_RETURN_NOTHING
 }
 
 void CAnimObject::BindLocationCollision(CObjLocationCollisionData* data, CObjLocationCollisionMap* map) {
@@ -355,7 +356,7 @@ void CAnimObject::HandleBulletCollision(CBullet* bullet, const CCollision& clsn)
     }
     const SClsnContact* contact = clsn.m_pContacts;
     event->m_pPoly = contact->m_pPoly;
-    int location = (int)event->m_pPoly;
+    int location = (int)PTR_TO_ADDR(event->m_pPoly);
     if (location < 9) {
         if (location == 2) {
             event->m_damage = (float)event->m_damage;
@@ -377,7 +378,7 @@ void CAnimObject::HandleBulletCollision(CBullet* bullet, const CCollision& clsn)
     // Like the original, assumes projectiles always have a shooter.
     if (firedBy->AsPlayerObject() != NULL) {
         g_Shell.Set_hits(1, false);
-        switch ((int)event->m_pPoly) {
+        switch ((int)PTR_TO_ADDR(event->m_pPoly)) {
         case 3:
         case 4:
         case 5:
@@ -503,6 +504,7 @@ int CAnimObject::BeginUpdate(float dt) {
         m_falling = 1;
     }
     m_constrained = 0;
+    END_RETURN_NOTHING
 }
 
 // Turns and moves, interpolates the root bone, and updates the volumes.
@@ -562,6 +564,7 @@ int CAnimObject::AttemptUpdate(float dt) {
     field_0x2454 = 0;
     m_contacts.m_size = 0;
     m_constrained = 0;
+    END_RETURN_NOTHING
 }
 
 int CAnimObject::CommitUpdate() {
@@ -584,6 +587,7 @@ int CAnimObject::CommitUpdate() {
         m_turnFrom[2] = pos.z;
         m_turnFrom[3] = pos.w;
     }
+    END_RETURN_NOTHING
 }
 
 // The velocity relative to a contact's mover, into its normal.
@@ -788,6 +792,7 @@ void CAnimObject::Move(CVector3 delta) {
 int CAnimObject::Yaw(float angle) {
     m_tm.RotateZ(angle);
     m_heading = (m_heading + (int)(ANGLE_TO_UNITS * angle)) & 0xFFFFFF;
+    END_RETURN_NOTHING
 }
 
 float CAnimObject::GetYaw() const {

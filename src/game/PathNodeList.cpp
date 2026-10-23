@@ -51,7 +51,7 @@ static inline float Distance(const CPathNode* node, const CAIFilterRealPosition&
 }
 
 CPathNodeList::CPathNodeList(void* base, BPDPathFindingNode* nodes, int numNodes) {
-    m_nodes = (CPathNode*)((u8*)base + (u32)nodes);
+    m_nodes = (CPathNode*)((u8*)base + (u32)PTR_TO_ADDR(nodes));
     m_numNodes = numNodes;
 
     // fix up the records in place
@@ -63,7 +63,7 @@ CPathNodeList::CPathNodeList(void* base, BPDPathFindingNode* nodes, int numNodes
         EndianSwap(*(u32*)&node->m_links);
         node->m_enabled = true;
         node->m_pSearchNode = NULL;
-        node->m_links = (s16*)((u8*)base + (u32)node->m_links);
+        node->m_links = (s16*)((u8*)base + (u32)PTR_TO_ADDR(node->m_links));
         for (int i = 0; i < node->m_numLinks; i++) {
             EndianSwap(node->m_links[i]);
         }

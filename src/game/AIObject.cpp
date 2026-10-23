@@ -1549,9 +1549,9 @@ void CAIObject::CheckCoverpointUsefulness() {
 static inline void SendNearCoverEvent(CAIObject* self, int normal, int high) {
     u32 type = self->m_coverType;
     if (type & 0xC0) {
-        BSObjectTriggerEvent(self->GetScript(), high, (void*)type, NULL, false);
+        BSObjectTriggerEvent(self->GetScript(), high, ADDR_TO_PTR(void, type), NULL, false);
     } else {
-        BSObjectTriggerEvent(self->GetScript(), normal, (void*)type, NULL, false);
+        BSObjectTriggerEvent(self->GetScript(), normal, ADDR_TO_PTR(void, type), NULL, false);
     }
 }
 
@@ -1634,7 +1634,7 @@ void CAIObject::WalkToCoverPoint() {
     }
     if (!(m_coverFlags & AICOVER_ARRIVED) && dist < 0.3f && into > 0.01f) {
         m_atCoverPoint = 1;
-        BSObjectTriggerEvent(GetScript(), AIEVT_AT_COVER, (void*)m_coverType, NULL, true);
+        BSObjectTriggerEvent(GetScript(), AIEVT_AT_COVER, ADDR_TO_PTR(void, m_coverType), NULL, true);
         m_coverFlags |= AICOVER_ARRIVED;
     }
 }
@@ -1652,7 +1652,7 @@ void CAIObject::WalkToCoverPointDirect() {
     }
     if (!(m_coverFlags & AICOVER_ARRIVED) && distSq < 0.09f) {
         m_atCoverPoint = 1;
-        BSObjectTriggerEvent(GetScript(), AIEVT_AT_COVER, (void*)m_coverType, NULL, true);
+        BSObjectTriggerEvent(GetScript(), AIEVT_AT_COVER, ADDR_TO_PTR(void, m_coverType), NULL, true);
         m_coverFlags |= AICOVER_ARRIVED;
     }
 }
@@ -2080,12 +2080,13 @@ bool CAIObject::IsObjectReachable(const CAIFilterRealPosition& pos) {
 // What a script gets with a heard sound (event block of 0x20 bytes).
 struct AISoundHeardData {
     /* 0x00 */ f32 m_position[3];
-    /* 0x0C */ BSObject* m_source;
+    /* 0x0C */ PTR32(BSObject) m_source;
     /* 0x10 */ f32 m_loudness;  // volume / distance
     /* 0x14 */ u32 m_notFootstep;
     /* 0x18 */ s32 field_0x18;
     /* 0x1C */ s32 field_0x1C;  // SoundInfo field_0x28, or 0 from a friend
 };
+FILE_SIZE_ASSERT(AISoundHeardData, 0x20);  // an event memory block; scripts read it
 
 // Tells every object in hearing range (scaled by the volume) about a sound,
 // as a timer event after a random delay.
@@ -2193,6 +2194,6 @@ bool CAIObject::ShouldILeaveMMG(TriggerObject_struct* gun) {
 }
 
 // Layout checks against the original (offsets used by the AI units).
-typedef char AIObjectSizeCheck[sizeof(CAIObject) == 0x734 ? 1 : -1];
-typedef char AIObjectAvoidanceCheck[sizeof(CObstacleAvoidance) == 0x3A0 ? 1 : -1];
+SIZE_ASSERT(CAIObject, 0x734);
+SIZE_ASSERT(CObstacleAvoidance, 0x3A0);
 typedef char AIObjectStatusCheck[sizeof(CAIStatus) == 0x38 ? 1 : -1];

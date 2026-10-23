@@ -163,9 +163,9 @@ void BSSchedule::Update() {
             int data;
             if (m_callback(cur->obj, cur->a, cur->b, cur->c, &data, &delay)) {
                 if (delay != 0) {
-                    BSRegisterTimerEvent(delay, cur->event, cur->obj, (void*)data, TIMER_KEEP_EARLIER);
+                    BSRegisterTimerEvent(delay, cur->event, cur->obj, ADDR_TO_PTR(void, data), TIMER_KEEP_EARLIER);
                 } else {
-                    BSObjectTriggerEvent(cur->obj, cur->event, (void*)data, NULL, false);
+                    BSObjectTriggerEvent(cur->obj, cur->event, ADDR_TO_PTR(void, data), NULL, false);
                 }
                 if (cur->oneShot) {
                     Remove(cur);

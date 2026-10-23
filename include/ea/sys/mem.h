@@ -20,25 +20,27 @@
 #define MB_FREE 0x4000       // block is on the free list
 #define MB_FIXED 0x8000      // class bound block (LOW/HIGH)
 
-// A block header (0x10 bytes); the block's data follows it.
+// A block header (0x10 bytes); the block's data follows it. The heap is in the
+// arena and the header size is fixed, so natively the links are 32-bit too.
 #define MEMBLOCK_HEADER 0x10
 
 struct MEMBLOCK {
     /* 0x00 */ u16 magic;
     /* 0x02 */ u16 flags;  // class | MB_*
     /* 0x04 */ s32 size;   // data size; for a free block the whole span up to `next`
-    /* 0x08 */ MEMBLOCK* next;
-    /* 0x0C */ MEMBLOCK* prev;
+    /* 0x08 */ PTR32(MEMBLOCK) next;
+    /* 0x0C */ PTR32(MEMBLOCK) prev;
     // Free blocks only (in the data area):
-    /* 0x10 */ MEMBLOCK* nextFree;
-    /* 0x14 */ MEMBLOCK* prevFree;
+    /* 0x10 */ PTR32(MEMBLOCK) nextFree;
+    /* 0x14 */ PTR32(MEMBLOCK) prevFree;
 };
+FILE_SIZE_ASSERT(MEMBLOCK, 0x18);
 
 // A memory class, kept in the data of its LOW block.
 struct MEMCLASS {
     /* 0x00 */ char name[8];
-    /* 0x08 */ MEMBLOCK* low;   // bound blocks at both ends
-    /* 0x0C */ MEMBLOCK* high;
+    /* 0x08 */ PTR32(MEMBLOCK) low;   // bound blocks at both ends
+    /* 0x0C */ PTR32(MEMBLOCK) high;
     /* 0x10 */ MEMBLOCK freeList;  // head of the free list (size 0x7FFFFFFF stops searches)
     /* 0x28 */ s32 blockAlign;
     /* 0x2C */ s32 dataAlign;  // used with MB_CLASSALIGN
@@ -46,8 +48,9 @@ struct MEMCLASS {
     /* 0x34 */ s32 flags;
     /* 0x38 */ u8 hasMutex;
     /* 0x3C */ u8 mutex[0x1C];
-    /* 0x58 */ void* osBlock;  // OS heap block holding the class (MEM_init)
+    /* 0x58 */ PTR32(void) osBlock;  // OS heap block holding the class (MEM_init)
 };
+FILE_SIZE_ASSERT(MEMCLASS, 0x5C);
 
 // Header of a block from its data pointer, and back. (sizeof(MEMBLOCK) includes the free
 // list links, so never use pointer arithmetic on MEMBLOCK*.)

@@ -39,13 +39,14 @@ class CAISplinePathManager;
 class CPathNodeList;
 struct _aifilter_simple_v3;
 
-// A level poly path (BPDHeader::m_polyPaths), points big-endian until
-// CreateSplinePathManager swaps them.
+// A level poly path (BPDHeader::m_polyPaths). The points are little-endian
+// (like the rest of the .bpd file) until CreateSplinePathManager swaps them.
 struct BPDPolyPath {
     /* 0x0 */ u32 m_id;
     /* 0x4 */ s32 m_numPoints;
-    /* 0x8 */ _aifilter_simple_v3* m_points;  // offset from the file until patched
+    /* 0x8 */ PTR32(_aifilter_simple_v3) m_points;  // offset from the file until patched
 };
+FILE_SIZE_ASSERT(BPDPolyPath, 0xC);
 
 // size >= 0xC (from field accesses); vtable 0x80183800
 class CAIFilterObject {

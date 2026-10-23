@@ -19,7 +19,7 @@
 // One decal type in decal.crp: six resource fields.
 struct DecalTypeDef {
     /* 0x00 */ int textureKind;
-    /* 0x04 */ const char* texture;
+    /* 0x04 */ PTR32(const char) texture;
     /* 0x08 */ int widthKind;
     /* 0x0C */ float width;
     /* 0x10 */ int heightKind;
@@ -31,6 +31,7 @@ struct DecalTypeDef {
     /* 0x28 */ int maxSpinKind;
     /* 0x2C */ float maxSpin;  // degrees in the file, radians after Init
 };
+FILE_SIZE_ASSERT(DecalTypeDef, 0x30);
 
 // The decal.crp resource's fields: a type count, then the types.
 struct DecalInfo {

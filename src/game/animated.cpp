@@ -64,7 +64,7 @@ int CAnimated::SetAnimationState(unsigned short state, float weight, unsigned sh
     }
     field_0xCC1 = false;
     int result = AnimStStartState((AnimStInfo_t*)m_stateInfo, &m_hdr, m_channels, state, this,
-                                  (int)arg, weight);
+                                  (int)PTR_TO_ADDR(arg), weight);
     *(long*)AnimStGetStateUserMemory((AnimStInfo_t*)m_stateInfo, state) = userValue;
     return result;
 }

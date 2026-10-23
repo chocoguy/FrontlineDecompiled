@@ -29,14 +29,15 @@ struct WeaponProperties_struct {
     /* 0x10 */ s16 m_numPellets;  // bullets per shot
     /* 0x12 */ s16 m_maxAmmo;
     /* 0x14 */ char m_modelName[0x14];
-    /* 0x28 */ CStaticMesh* m_pMesh;  // (while loading: index of the first type using the model, -1 none)
+    /* 0x28 */ PTR32(CStaticMesh) m_pMesh;  // (while loading: index of the first type using the model, -1 none)
     /* 0x2C */ char m_iconName[0x14];
-    /* 0x40 */ CSprite* m_pIcon;
+    /* 0x40 */ PTR32(CSprite) m_pIcon;
     /* 0x44 */ f32 m_spread;  // radians
     /* 0x48 */ s16 m_soundType;
     /* 0x4A */ s16 m_hand;  // soldiers hold it in the left (even) or right (odd) hand
     /* 0x4C */ f32 m_noise;  // AI hearing range of a shot
 };
+FILE_SIZE_ASSERT(WeaponProperties_struct, 0x50);  // copied from the weapon files
 
 // How Update fires (m_shootType).
 enum {

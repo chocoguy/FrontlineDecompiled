@@ -12,7 +12,7 @@ void SNDDRV_mixvoicefree(int voice);
 void SNDDRV_callbackdropvoice(void* p);
 int SNDDRV_allocateaxvoice(int voice);
 void SNDDRV_freeaxvoice(int voice, int mode);
-void SNDDRV_dmcallback(unsigned long req);
+void SNDDRV_dmcallback(u32 req);
 void SNDDRV_audiocallback(void* data, void* context);
 void SNDDRV_fillbufwithpackets(int player, SNDDRVPKTCHAN* pc, CHANPUB* v);
 void SNDDRV_thread(void* param);
@@ -179,8 +179,8 @@ void SNDDRV_freeaxvoice(int voice, int mode) {
     }
 }
 
-void SNDDRV_dmcallback(unsigned long req) {
-    ARQRequest* r = (ARQRequest*)req;
+void SNDDRV_dmcallback(u32 req) {
+    ARQRequest* r = ADDR_TO_PTR(ARQRequest, req);
     snddrv.lastDone = r->owner;
     for (int i = 0; i < 64; i++) {
         if (snddrv.dma[i].id == (s32)r->owner) {
@@ -231,7 +231,7 @@ void SNDDRV_initmixer() {
     for (int i = 0; i < opts.numOutputs; i++) {
         SNDSYS_entercritical();
         snddrv.mixMem[i] = SNDMEMI_allocz(0x2A0);
-        snddrv.mixOut[i] = (f32*)(((u32)snddrv.mixMem[i] + 31) & ~31);
+        snddrv.mixOut[i] = (f32*)(((uptr)(snddrv.mixMem[i]) + 31) & ~31);
         SNDSYS_leavecritical();
     }
     snddrv.mixerInited = 1;
@@ -248,7 +248,7 @@ void SNDDRV_fillbufwithpackets(int player, SNDDRVPKTCHAN* pc, CHANPUB* v) {
     while (left > 0) {
         if (pc->pkt[0] == NULL) {
             for (ch = 0; ch < v->channels; ch++) {
-                pc->pkt[ch] = (u8*)SNDPKTPLAYI_get(player, ch, &samples, &unused);
+                pc->pkt[ch] = ADDR_TO_PTR(u8, SNDPKTPLAYI_get(player, ch, &samples, &unused));
             }
             pc->pos = 0;
             pc->bytes = samples * 2;
@@ -280,7 +280,7 @@ void SNDDRV_fillbufwithpackets(int player, SNDDRVPKTCHAN* pc, CHANPUB* v) {
     }
     for (ch = 0; ch < v->channels; ch++) {
         DCFlushRange(pc->bounce[ch], 0x600);
-        postdma(-1, ARQ_PRIORITY_HIGH, (u32)pc->bounce[ch], pc->aram[ch] + pc->half * 0x600, 0x600);
+        postdma(-1, ARQ_PRIORITY_HIGH, (u32)PTR_TO_ADDR(pc->bounce[ch]), pc->aram[ch] + pc->half * 0x600, 0x600);
     }
 }
 
@@ -394,14 +394,14 @@ int SNDPLATFORM_init() {
         SNDARAM_init(sndgs.opts.caps.maxBanks + 32);
         SNDARAM_setpool(sndgs.opts.caps.aramBase, sndgs.opts.caps.aramSize);
     }
-    u32 zero = (u32)SNDPLATFORM_memalloc(0, 0x500);
-    u8* buf = (u8*)(((u32)snddrv.zeroMem + 31) & ~31);
+    u32 zero = (u32)PTR_TO_ADDR(SNDPLATFORM_memalloc(0, 0x500));
+    u8* buf = (u8*)(((uptr)(snddrv.zeroMem) + 31) & ~31);
     snddrv.zeroAram = zero;
     snddrv.zeroAram16 = zero >> 1;
     snddrv.zeroAramNibble = zero * 2;
     snddrv.zeroBuf = buf;
-    postdma(-1, ARQ_PRIORITY_HIGH, (u32)buf, zero, 0x500);
-    postdma(-1, ARQ_PRIORITY_HIGH, (u32)snddrv.zeroBuf, ARGetBaseAddress(), 0x100);
+    postdma(-1, ARQ_PRIORITY_HIGH, (u32)PTR_TO_ADDR(buf), zero, 0x500);
+    postdma(-1, ARQ_PRIORITY_HIGH, (u32)PTR_TO_ADDR(snddrv.zeroBuf), ARGetBaseAddress(), 0x100);
     AIInit(NULL);
     AXInit();
     if (sndgs.opts.caps.speakers == 3) {
@@ -548,7 +548,7 @@ int SNDPLATFORM_asyncresolvetimbre(SNDIPATCHHEADER* header, char* aram, int* sta
     if (*state == 0) {
         *state = header->offset[0];
     }
-    *header->aramAddr = (s32)aram + (header->offset[0] - *state);
+    *header->aramAddr = (s32)PTR_TO_ADDR(aram) + (header->offset[0] - *state);
     return 0;
 }
 
@@ -653,7 +653,7 @@ int SNDPLATFORM_playtimbre(SNDIPATCHHEADER* header, void* bank, int voice, int t
         return 0;
     }
     for (int i = 0; i < v->channels; i++) {
-        MIX_playinit(v->chanVoice[i] - numhw(), header->unk_0x13, 1, (int)bank + header->offset[i], -1,
+        MIX_playinit(v->chanVoice[i] - numhw(), header->unk_0x13, 1, (int)PTR_TO_ADDR(bank) + header->offset[i], -1,
                      (u8*)header->data[i], 0, v->endFrame, header->loopStart, header->loopEnd, 0, 0, i);
     }
     SNDPLATFORM_setpitch(v->chanVoice[0]);
@@ -704,17 +704,17 @@ int SNDPLATFORM_packetoverhead() {
 int SNDPLATFORM_packetplaycreate(int player, void* buffer) {
     SNDDRVPKTCHAN* pc = (SNDDRVPKTCHAN*)buffer;
     memset(pc, 0, sizeof(SNDDRVPKTCHAN));
-    pc->aram[0] = (u32)SNDPLATFORM_memalloc(0, 0xC00);
+    pc->aram[0] = (u32)PTR_TO_ADDR(SNDPLATFORM_memalloc(0, 0xC00));
     if (pc->aram[0] == 0) {
         return -9;
     }
-    pc->aram[1] = (u32)SNDPLATFORM_memalloc(0, 0xC00);
+    pc->aram[1] = (u32)PTR_TO_ADDR(SNDPLATFORM_memalloc(0, 0xC00));
     if (pc->aram[1] == 0) {
         return -9;
     }
-    pc->bounce[0] = (u8*)(((u32)pc + 0x1F) & ~0x1F);
-    pc->bounce[1] = (u8*)(((u32)pc + 0x65F) & ~0x1F);
-    pc->bounce[2] = (u8*)(((u32)pc + 0xC9F) & ~0x1F);
+    pc->bounce[0] = (u8*)(((uptr)(pc) + 0x1F) & ~0x1F);
+    pc->bounce[1] = (u8*)(((uptr)(pc) + 0x65F) & ~0x1F);
+    pc->bounce[2] = (u8*)(((uptr)(pc) + 0xC9F) & ~0x1F);
     pc->voice = -1;
     snddrv.pkt[player] = pc;
     return 0;
@@ -758,7 +758,7 @@ int SNDPLATFORM_packetplay(int player, int voice, int timemult, int a, int lowpa
         }
         memset(pc->bounce[i], 0, 0x600);
         DCFlushRange(pc->bounce[i], 0x600);
-        postdma(-1, ARQ_PRIORITY_HIGH, (u32)pc->bounce[i], pc->aram[i], 0x600);
+        postdma(-1, ARQ_PRIORITY_HIGH, (u32)PTR_TO_ADDR(pc->bounce[i]), pc->aram[i], 0x600);
         AXSetVoiceSrcType(snddrv.voices[v->chanVoice[i]].axvpb, AX_SRC_TYPE_LINEAR);
         snddrv.voices[v->chanVoice[i]].active = 1;
     }
@@ -956,9 +956,9 @@ int SNDPLATFORM_filteradd(int voice, SNDFILTERDEF* filter) {
 void* SNDPLATFORM_memalloc(int type, int size) {
     size = (size + 31) & ~31;
     if (sndgs.opts.aramalloc != NULL) {
-        return (void*)sndgs.opts.aramalloc(size);
+        return ADDR_TO_PTR(void, sndgs.opts.aramalloc(size));
     }
-    return (void*)SNDARAM_alloc(size);
+    return ADDR_TO_PTR(void, SNDARAM_alloc(size));
 }
 
 int SNDPLATFORM_memfree(int type, unsigned int addr) {
@@ -974,7 +974,7 @@ int SNDPLATFORM_memfree(int type, unsigned int addr) {
 int SNDPLATFORM_download(int type, void* src, void* dest, int size) {
     DCFlushRange(src, size);
     int handle = snddrv.dmaId;
-    postdma(-1, ARQ_PRIORITY_LOW, (u32)src, (u32)dest, size);
+    postdma(-1, ARQ_PRIORITY_LOW, (u32)PTR_TO_ADDR(src), (u32)PTR_TO_ADDR(dest), size);
     return handle;
 }
 

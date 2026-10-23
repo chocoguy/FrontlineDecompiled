@@ -15,7 +15,7 @@
 // Whether `text` has a line break before its last character.
 static inline bool IsMultiLine(const char* text) {
     int len = strlen(text);
-    char* cr = strrchr(text, '\r');
+    char* cr = (char*)strrchr(text, '\r');
     int end = cr != NULL ? (cr - text) + 1 : len;
     return len != end;
 }
@@ -26,7 +26,7 @@ static inline void DrawLines(CFont* font, float x, float y, const char* text, fl
     while (left > 0) {
         char line[0x80];
         memset(line, 0, sizeof(line));
-        char* cr = strchr(text, '\r');
+        char* cr = (char*)strchr(text, '\r');
         if (cr != NULL) {
             int n = cr - text;
             left = left - n - 2;
@@ -60,7 +60,7 @@ void TibTextProcessFnc(void* p, unsigned long event, unsigned long numParams, UI
             font->SetHeight(data->height);
             LibraryInfo[data->library].images[data->fontIndex] = (CSprite*)font;
         }
-        data->string = (UISString_t*)((u8*)data + (u32)data->string);
+        data->string = (UISString_t*)((u8*)data + (u32)PTR_TO_ADDR(data->string));
         break;
     }
     case (unsigned long)-2:
@@ -72,7 +72,12 @@ void TibTextProcessFnc(void* p, unsigned long event, unsigned long numParams, UI
             delete font;
             LibraryInfo[data->library].images[data->fontIndex] = NULL;
         }
+#ifdef FRONTLINE_NATIVE
+        // Back to an offset, which isn't a valid pointer natively.
+        data->string.setAddr(PTR_TO_ADDR(data->string) - PTR_TO_ADDR(data));
+#else
         data->string = (UISString_t*)((u8*)data->string - (u8*)data);
+#endif
         break;
     }
     case 0:
@@ -93,7 +98,7 @@ void TibTextProcessFnc(void* p, unsigned long event, unsigned long numParams, UI
         data->field_0x40[2] = *(f32*)&params[0].value;
         break;
     case 3: {
-        UISString_t* src = (UISString_t*)params[0].value;
+        UISString_t* src = ADDR_TO_PTR(UISString_t, params[0].value);
         strncpy(data->string->text, src->text, data->string->maxLength);
         if (src->maxLength < data->string->maxLength) {
             data->string->text[src->maxLength] = '\0';

@@ -38,6 +38,11 @@ void CMatrix::InitClass() {
     s_ClassInit = 1;
 }
 
+#ifdef FRONTLINE_NATIVE
+void CMatrix::operator=(const CMatrix& src) {
+    memcpy(m, src.m, sizeof(m));
+}
+#else
 asm void CMatrix::operator=(const CMatrix& src) {
     nofralloc
     psq_l f0, 0x0(r4), 0, 0
@@ -58,6 +63,7 @@ asm void CMatrix::operator=(const CMatrix& src) {
     psq_st f3, 0x38(r3), 0, 0
     blr
 }
+#endif
 
 void CMatrix::BuildScale(float s) {
     Ident();
@@ -417,6 +423,11 @@ void CMatrix::Orthonormalize() {
     m[2][2] = u.z;
 }
 
+#ifdef FRONTLINE_NATIVE
+void CMatrix::Ident() {
+    memcpy(m, _Mat_Data, sizeof(m));
+}
+#else
 void CMatrix::Ident() {
     register f32 zero = 0.0f;
     register f32 one = 1.0f;
@@ -436,6 +447,7 @@ void CMatrix::Ident() {
         nop
     }
 }
+#endif
 
 void CMatrix::ToEulerXYZ(float& x, float& y, float& z) const {
     if (m[0][2] < 1.0f) {
@@ -514,6 +526,18 @@ void CMatrix::EndianSwap() {
     ::EndianSwap(*(u32*)&m[3][3]);
 }
 
+#ifdef FRONTLINE_NATIVE
+// out = M * v on the upper 3x3 (v times the transpose): the inverse rotation.
+void PSTransformToLocal(float* out, const float* m, const float* v) {
+    float x = v[0], y = v[1], z = v[2];
+    float r0 = m[0] * x + m[1] * y + m[2] * z;
+    float r1 = m[4] * x + m[5] * y + m[6] * z;
+    float r2 = m[8] * x + m[9] * y + m[10] * z;
+    out[0] = r0;
+    out[1] = r1;
+    out[2] = r2;
+}
+#else
 asm void PSTransformToLocal(float* out, const float* m, const float* v) {
     nofralloc
     psq_l f0, 0x0(r4), 0, 0
@@ -547,7 +571,20 @@ asm void PSTransformToLocal(float* out, const float* m, const float* v) {
     stfs f12, 0x8(r3)
     blr
 }
+#endif
 
+#ifdef FRONTLINE_NATIVE
+// out = v * M on the upper 3x3 (row vectors; no translation).
+void PSTransformVector(float* out, const float* m, const float* v) {
+    float x = v[0], y = v[1], z = v[2];
+    float r0 = m[0] * x + m[4] * y + m[8] * z;
+    float r1 = m[1] * x + m[5] * y + m[9] * z;
+    float r2 = m[2] * x + m[6] * y + m[10] * z;
+    out[0] = r0;
+    out[1] = r1;
+    out[2] = r2;
+}
+#else
 asm void PSTransformVector(float* out, const float* m, const float* v) {
     nofralloc
     psq_l f0, 0x0(r4), 0, 0
@@ -570,7 +607,20 @@ asm void PSTransformVector(float* out, const float* m, const float* v) {
     stfs f12, 0x8(r3)
     blr
 }
+#endif
 
+#ifdef FRONTLINE_NATIVE
+// out = v * M + the translation row.
+void PSTransformPoint(float* out, const float* m, const float* v) {
+    float x = v[0], y = v[1], z = v[2];
+    float r0 = m[12] + (m[0] * x + m[4] * y + m[8] * z);
+    float r1 = m[13] + (m[1] * x + m[5] * y + m[9] * z);
+    float r2 = m[14] + (m[2] * x + m[6] * y + m[10] * z);
+    out[0] = r0;
+    out[1] = r1;
+    out[2] = r2;
+}
+#else
 asm void PSTransformPoint(float* out, const float* m, const float* v) {
     nofralloc
     psq_l f0, 0x0(r4), 0, 0
@@ -597,6 +647,7 @@ asm void PSTransformPoint(float* out, const float* m, const float* v) {
     stfs f12, 0x8(r3)
     blr
 }
+#endif
 
 // out = a * b for row-major 4x4 matrices.
 //
@@ -604,6 +655,35 @@ asm void PSTransformPoint(float* out, const float* m, const float* v) {
 // the retail callers happen to keep nothing live in those registers across
 // the call, but our recompiled callers do (e.g. CParticleSystem::RenderSystem
 // lost its particle age to it). This version saves and restores them.
+#ifdef FRONTLINE_NATIVE
+// out = a * b for row-major 4x4 matrices. Loads and stores happen in the
+// original's order (columns 0-1 of every row, then columns 2-3), which
+// decides the result when `out` aliases `a` or `b`.
+void PSMultMatrix(float* out, const float* a, const float* b) {
+    float b00 = b[0], b01 = b[1], b10 = b[4], b11 = b[5];
+    float b20 = b[8], b21 = b[9], b30 = b[12], b31 = b[13];
+    float ar[4][4];
+    for (int i = 0; i < 4; i++) {
+        float a0 = a[i * 4 + 0], a1 = a[i * 4 + 1], a2 = a[i * 4 + 2], a3 = a[i * 4 + 3];
+        ar[i][0] = a0;
+        ar[i][1] = a1;
+        ar[i][2] = a2;
+        ar[i][3] = a3;
+        float c0 = b00 * a0 + b10 * a1 + b20 * a2 + b30 * a3;
+        float c1 = b01 * a0 + b11 * a1 + b21 * a2 + b31 * a3;
+        out[i * 4 + 0] = c0;
+        out[i * 4 + 1] = c1;
+    }
+    float b02 = b[2], b03 = b[3], b12 = b[6], b13 = b[7];
+    float b22 = b[10], b23 = b[11], b32 = b[14], b33 = b[15];
+    for (int i = 0; i < 4; i++) {
+        float c2 = b02 * ar[i][0] + b12 * ar[i][1] + b22 * ar[i][2] + b32 * ar[i][3];
+        float c3 = b03 * ar[i][0] + b13 * ar[i][1] + b23 * ar[i][2] + b33 * ar[i][3];
+        out[i * 4 + 2] = c2;
+        out[i * 4 + 3] = c3;
+    }
+}
+#else
 asm void PSMultMatrix(float* out, const float* a, const float* b) {
     nofralloc
     stwu r1, -0x70(r1)
@@ -690,3 +770,4 @@ asm void PSMultMatrix(float* out, const float* a, const float* b) {
     addi r1, r1, 0x70
     blr
 }
+#endif

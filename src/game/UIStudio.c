@@ -9,6 +9,7 @@
 #include "game/UISStack.h"
 #include "game/UISUtils.h"
 #include "game/uistypes.h"
+#include "game/uisswap.h"
 
 extern void (*RuntimeErrorFnc)(int error);
 
@@ -17,7 +18,7 @@ static inline void CallPlugin(UISInfo_t* info, UISListEntry_t* e, unsigned long 
     if (e->type < info->numPlugins) {
         UISPluginProcessFnc fnc = info->plugins[e->type];
         if (fnc != NULL) {
-            fnc((void*)e->data, event, numParams, params, NULL);
+            fnc(ADDR_TO_PTR(void, e->data), event, numParams, params, NULL);
         }
     }
 }
@@ -47,7 +48,7 @@ static void _ParseInitialize(UISInfo_t* info, UISScreen_t* screen, unsigned long
             } else if (e->type < info->numPlugins) {
                 UISPluginProcessFnc fnc = info->plugins[e->type];
                 if (fnc != NULL) {
-                    fnc((void*)e->data, event, 0, NULL, NULL);
+                    fnc(ADDR_TO_PTR(void, e->data), event, 0, NULL, NULL);
                     e->state = loaded;
                 }
             }
@@ -294,7 +295,7 @@ static int _ParseMaps(UISInfo_t* info, UISScreen_t* screen, UISStackInfo_t* stac
                 result = _ParseMaps(info, screen, stack, e->pc, port, event, numParams, params,
                                     &childEnabled);
                 if (childEnabled == 1) {
-                    void* pc = (void*)UISFindSubControlEventPC(control, e->pc, event);
+                    void* pc = ADDR_TO_PTR(void, UISFindSubControlEventPC(control, e->pc, event));
                     if (pc != NULL) {
                         if (UISExecuteFnc(info, screen, control->info, stack, pc, numParams,
                                           params, 0, NULL, 1, index, NULL) == 2) {
@@ -305,10 +306,10 @@ static int _ParseMaps(UISInfo_t* info, UISScreen_t* screen, UISStackInfo_t* stac
             }
         }
         UISProcessThreadAction(info, 1);
-        void* pc = (void*)UISFindEventPC(control, event);
+        void* pc = ADDR_TO_PTR(void, UISFindEventPC(control, event));
         if ((event == (unsigned long)UIS_EV_CONTROL_ACTIVATE ||
              event == (unsigned long)UIS_EV_CONTROL_DEACTIVATE) &&
-            control->info != (UISControlInfo_t*)params[2].value) {
+            control->info != ADDR_TO_PTR(UISControlInfo_t, params[2].value)) {
             pc = NULL;
         }
         if (pc != NULL) {
@@ -393,12 +394,19 @@ static void _ParseRateFncs(UISInfo_t* info, unsigned long ticks) {
     UISRemoveUnNessaryRateFncs(info);
 }
 
+#ifdef FRONTLINE_NATIVE
+#define PATCH(base, p) NativeRelocate((p), PTR_TO_ADDR(base))
+#else
 #define PATCH(base, p) (*(u32*)&(p) = (u32)(base) + *(u32*)&(p))
+#endif
 
 // Turns a loaded screen file's offsets into pointers. Returns 1, or -1 if
 // it was already patched.
 int PatchScrData(UISScrData_t* data) {
-    if ((u32)data->controls >= (u32)data) {
+#ifdef FRONTLINE_NATIVE
+    ScrDataFromBigEndian(data);
+#endif
+    if ((u32)PTR_TO_ADDR(data->controls) >= (u32)PTR_TO_ADDR(data)) {
         return -1;
     }
     u8* base = (u8*)data;
@@ -441,7 +449,7 @@ int PatchScrData(UISScrData_t* data) {
     while (i-- != 0) {
         u32* ref = (u32*)(base + data->stringRefs[i]);
         if (*ref < data->numStrings) {
-            *ref = (u32)&data->strings[*ref];
+            *ref = (u32)PTR_TO_ADDR(&data->strings[*ref]);
         } else {
             *ref = 0;
         }
@@ -915,13 +923,13 @@ void UISInternalActivateControl(UISInfo_t* info, unsigned char activate, unsigne
             UISInternalActivateControl(info, 0, 0, sibling, NULL, screen, group);
         }
     }
-    void* pc = (void*)UISFindEventPC(owner, event);
+    void* pc = ADDR_TO_PTR(void, UISFindEventPC(owner, event));
     owner->info->enabled = activate;
     if (pc != NULL) {
         UISExecuteFnc(info, s, owner->info, &info->stack, pc, 0, NULL, 0, NULL, 1, value, NULL);
     }
     if (parent != NULL) {
-        pc = (void*)UISFindSubControlEventPC(parent, i, event);
+        pc = ADDR_TO_PTR(void, UISFindSubControlEventPC(parent, i, event));
         if (pc != NULL) {
             UISExecuteFnc(info, s, parent->info, &info->stack, pc, 0, NULL, 0, NULL, 1, value,
                           NULL);

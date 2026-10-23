@@ -1,7 +1,8 @@
 # GC_IDCT: the movie decoder's inverse DCT of an 8x8 block of shorts, in
 # place, in paired singles. Hand-written assembly (the original was too).
-# GQR7 loads and stores the block as s16 scaled by 16, so coefficients come
-# in 16 times their value (see getblk.cpp) and pixels come out unscaled.
+# GQR7 (0x04070007) loads the block as s16 scaled by 1/16 and stores it as
+# plain s16, so coefficients come in 16 times their value (see getblk.cpp)
+# and pixels come out unscaled.
 # Each pass is the AAN-style 8-point transform on two rows/columns at once;
 # constdata holds the cosine factors (and a 0 the row pass uses).
 

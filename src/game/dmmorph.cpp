@@ -2,6 +2,7 @@
 // morph targets are blended into a copy of its base part's display list,
 // with the positions and normals written directly instead of indexed.
 #include "game/dmmorph.h"
+#include "game/gxstore.h"
 #include "game/dmrender.h"
 #include "game/dmesh.h"
 #include "game/memory.h"
@@ -144,41 +145,41 @@ void DMMorphBlendDisplayLists(DMRenderObject_T* obj) {
         *(u16*)(out + 1) = *(u16*)(cmd + 1);
         buffer->m_used += 3;
         u8* vtx = cmd + 3;
-        u8* vtxEnd = vtx + *(u16*)(cmd + 1) * 7;
+        u8* vtxEnd = vtx + GX_LOAD16(cmd + 1) * 7;
         int pair = pairOffset;
         for (; vtx != vtxEnd; vtx += 7) {
-            s16* pos = mesh->m_positions[*(u16*)(vtx + 1)];
-            s16* nrm = mesh->m_normals[*(u16*)(vtx + 3)];
+            s16* pos = mesh->m_positions[GX_LOAD16(vtx + 1)];
+            s16* nrm = mesh->m_normals[GX_LOAD16(vtx + 3)];
             v.m_0 = vtx[0];
-            v.m_pos[0] = pos[0];
-            v.m_pos[1] = pos[1];
-            v.m_pos[2] = pos[2];
-            v.m_nrm[0] = nrm[0];
-            v.m_nrm[1] = nrm[1];
-            v.m_nrm[2] = nrm[2];
+            v.m_pos[0] = GX_LOADS16(&pos[0]);
+            v.m_pos[1] = GX_LOADS16(&pos[1]);
+            v.m_pos[2] = GX_LOADS16(&pos[2]);
+            v.m_nrm[0] = GX_LOADS16(&nrm[0]);
+            v.m_nrm[1] = GX_LOADS16(&nrm[1]);
+            v.m_nrm[2] = GX_LOADS16(&nrm[2]);
             v.m_6 = *(u16*)(vtx + 5);
             for (u32 i = 0; i < numTargets; i++) {
                 f32 w = targets[i].m_weight;
                 u16* indices = (u16*)(parts[targets[i].m_target].m_lists->data + pair);
-                s16* tp = mesh->m_positions[indices[0]];
-                s16* tn = mesh->m_normals[indices[1]];
-                v.m_pos[0] += (int)((f32)tp[0] * w);
-                v.m_pos[1] += (int)((f32)tp[1] * w);
-                v.m_pos[2] += (int)((f32)tp[2] * w);
-                v.m_nrm[0] += (int)((f32)tn[0] * w);
-                v.m_nrm[1] += (int)((f32)tn[1] * w);
-                v.m_nrm[2] += (int)((f32)tn[2] * w);
+                s16* tp = mesh->m_positions[GX_LOAD16(&indices[0])];
+                s16* tn = mesh->m_normals[GX_LOAD16(&indices[1])];
+                v.m_pos[0] += (int)((f32)GX_LOADS16(&tp[0]) * w);
+                v.m_pos[1] += (int)((f32)GX_LOADS16(&tp[1]) * w);
+                v.m_pos[2] += (int)((f32)GX_LOADS16(&tp[2]) * w);
+                v.m_nrm[0] += (int)((f32)GX_LOADS16(&tn[0]) * w);
+                v.m_nrm[1] += (int)((f32)GX_LOADS16(&tn[1]) * w);
+                v.m_nrm[2] += (int)((f32)GX_LOADS16(&tn[2]) * w);
             }
             pair += 4;
             pairOffset += 4;
             u8* o = buffer->m_data + buffer->m_used;
             o[0] = v.m_0;
-            *(s16*)(o + 1) = v.m_pos[0];
-            *(s16*)(o + 3) = v.m_pos[1];
-            *(s16*)(o + 5) = v.m_pos[2];
-            *(s16*)(o + 7) = v.m_nrm[0];
-            *(s16*)(o + 9) = v.m_nrm[1];
-            *(s16*)(o + 0xB) = v.m_nrm[2];
+            GX_STORE16(o + 1, v.m_pos[0]);
+            GX_STORE16(o + 3, v.m_pos[1]);
+            GX_STORE16(o + 5, v.m_pos[2]);
+            GX_STORE16(o + 7, v.m_nrm[0]);
+            GX_STORE16(o + 9, v.m_nrm[1]);
+            GX_STORE16(o + 0xB, v.m_nrm[2]);
             *(u16*)(o + 0xD) = v.m_6;
             buffer->m_used += 0xF;
         }

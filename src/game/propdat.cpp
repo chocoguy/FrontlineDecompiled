@@ -49,12 +49,18 @@ int g_numPlayerStarts;
 #define CRC_FOG_PARAMS 0x35FB0439
 
 static inline void Swap16(u8* p) {
+#ifdef FRONTLINE_NATIVE
+    return;  // little-endian data on a little-endian CPU: nothing to swap
+#endif
     u8 t = p[0];
     p[0] = p[1];
     p[1] = t;
 }
 
 static inline void Swap32(u8* p) {
+#ifdef FRONTLINE_NATIVE
+    return;  // little-endian data on a little-endian CPU: nothing to swap
+#endif
     u8 t = p[0];
     p[0] = p[3];
     p[3] = t;
@@ -395,9 +401,9 @@ void FreePropertyMemory() {
 
 // Patches a leaf list: an offset into the file, or (when empty) the address
 // of the field itself; `count` u16 entries are byte-swapped.
-static inline void PatchLeafList(char* base, u16*& list, int count, bool present) {
+static inline void PatchLeafList(char* base, PTR32(u16)& list, int count, bool present) {
     if (present) {
-        list = (u16*)&base[(u32)list];
+        list = (u16*)&base[PTR32_RAW(list)];
         for (int i = 0; i < count; i++) {
             Swap16((u8*)&list[i]);
         }
@@ -409,10 +415,10 @@ static inline void PatchLeafList(char* base, u16*& list, int count, bool present
 void PatchUpPropBSPTreeLeaf(char* base, _PropBSPLeaf* leaf) {
     EndianSwap(*leaf);
     PatchLeafList(base, leaf->m_triggers, leaf->m_numTriggers, leaf->m_numTriggers != 0);
-    PatchLeafList(base, leaf->m_list2C, leaf->m_numList2C, (s32)leaf->m_list2C > 0);
+    PatchLeafList(base, leaf->m_list2C, leaf->m_numList2C, (s32)PTR32_RAW(leaf->m_list2C) > 0);
     PatchLeafList(base, leaf->m_list28, leaf->m_numList28, leaf->m_numList28 != 0);
     if (leaf->m_numList1C != 0) {
-        leaf->m_list1C = (u16(*)[2]) & base[(u32)leaf->m_list1C];
+        leaf->m_list1C = (u16(*)[2]) & base[PTR32_RAW(leaf->m_list1C)];
         for (int i = 0; i < leaf->m_numList1C; i++) {
             Swap16((u8*)&leaf->m_list1C[i][0]);
             Swap16((u8*)&leaf->m_list1C[i][1]);
@@ -439,7 +445,7 @@ void EndianSwap(_PropBSPLeaf& leaf) {
 void PatchUpPropBSPTreeNode(char* base, _PropBSPNode* node) {
     EndianSwap(*node);
     for (int side = 0; side < 2; side++) {
-        node->m_children[side] = &base[(u32)node->m_children[side]];
+        node->m_children[side] = &base[PTR32_RAW(node->m_children[side])];
     }
     for (int side = 0; side < 2; side++) {
         if (node->m_isLeaf[side]) {
@@ -509,7 +515,7 @@ void FindPlayerStartTriggerAndCreatePlayer(bool restart, int player) {
         start = restartPoint;
     }
     if (start != NULL) {
-        CreateObject(start, 0xFFFF, (void*)player);
+        CreateObject(start, 0xFFFF, ADDR_TO_PTR(void, player));
     }
 }
 
@@ -574,8 +580,8 @@ void RestartPlayer(int player) {
 static inline void PatchList(MOH_core_Struct* core, int offset) {
     u32& field = Word(core, offset);
     if (field != 0) {
-        field = (u32)core + field;
-        u32* list = (u32*)field;
+        field = (u32)PTR_TO_ADDR(core) + field;
+        u32* list = ADDR_TO_PTR(u32, field);
         Swap32((u8*)&list[0]);
         for (u32 i = 1; i <= list[0]; i++) {
             Swap32((u8*)&list[i]);
@@ -586,7 +592,7 @@ static inline void PatchList(MOH_core_Struct* core, int offset) {
 static inline void PatchPointer(MOH_core_Struct* core, int offset) {
     u32& field = Word(core, offset);
     if (field != 0) {
-        field = (u32)core + field;
+        field = (u32)PTR_TO_ADDR(core) + field;
     }
 }
 
@@ -609,17 +615,17 @@ void PatchUpCore(MOH_core_Struct* core) {
 }
 
 // Particle tweakers: {name, data} pairs.
-static inline void PatchTweakers(void**& tweakers, int count, BPDHeader* header) {
+static inline void PatchTweakers(PTR32(PTR32(void))& tweakers, int count, BPDHeader* header) {
     if (tweakers != NULL) {
-        offsetPtr(tweakers, (int)header);
+        offsetPtr(tweakers, (int)PTR_TO_ADDR(header));
         for (int i = 0; i < count; i++) {
             Swap32((u8*)&tweakers[i * 2]);
             Swap32((u8*)&tweakers[i * 2 + 1]);
             if (tweakers[i * 2] != NULL) {
-                offsetPtr(*(char**)&tweakers[i * 2], (int)header);
+                offsetPtr(*(PTR32(char)*)&tweakers[i * 2], (int)PTR_TO_ADDR(header));
             }
             if (tweakers[i * 2 + 1] != NULL) {
-                offsetPtr(tweakers[i * 2 + 1], (int)header);
+                offsetPtr(tweakers[i * 2 + 1], (int)PTR_TO_ADDR(header));
             }
         }
     }
@@ -627,58 +633,58 @@ static inline void PatchTweakers(void**& tweakers, int count, BPDHeader* header)
 
 // Swaps and patches the whole .bpd; returns the size of the property records.
 int PatchUpAllPropertyData(BPDHeader* header) {
-    offsetPtr(header->m_properties, (int)header);
+    offsetPtr(header->m_properties, (int)PTR_TO_ADDR(header));
     u8* first = header->m_properties;
     int count = header->m_numProperties;
     TriggerObject_struct* trigger = g_pTriggerObjects;
     u8* record = first;
     int i;
     if (header->m_numTextures != 0) {
-        offsetPtr(header->m_textures, (int)header);
+        offsetPtr(header->m_textures, (int)PTR_TO_ADDR(header));
         for (i = 0; i < header->m_numTextures; i++) {
             Swap32((u8*)&header->m_textures[i]);
-            offsetPtr(header->m_textures[i], (int)header);
+            offsetPtr(header->m_textures[i], (int)PTR_TO_ADDR(header));
             CParticleSystem::Register((ShapeFile*)header->m_textures[i]);
         }
     }
     if (header->m_particles != NULL) {
-        MOH_particle_Struct* particle = header->m_particles;
-        offsetPtr(particle, (int)header);
+        PTR32(MOH_particle_Struct) particle = header->m_particles;
+        offsetPtr(particle, (int)PTR_TO_ADDR(header));
         for (i = 0; i < header->m_numParticles; i++) {
             EndianSwap(*(xyzProperty_Struct*)particle);
             EndianSwap(*particle);
-            offsetPtr(*(void**)((u8*)particle + 0xEC), (int)header);
+            offsetPtr(*(PTR32(void)*)((u8*)particle + 0xEC), (int)PTR_TO_ADDR(header));
             particle = (MOH_particle_Struct*)((u8*)particle + 0xF0);
         }
-        char* particles = (char*)header->m_particles;
-        offsetPtr(particles, (int)header);
+        PTR32(char) particles = (char*)header->m_particles;
+        offsetPtr(particles, (int)PTR_TO_ADDR(header));
         CParticleSystem::Register(particles, header->m_numParticles);
     }
     if (header->m_lights != NULL) {
-        MOH_animatedLight_Struct* light = header->m_lights;
-        offsetPtr(light, (int)header);
+        PTR32(MOH_animatedLight_Struct) light = header->m_lights;
+        offsetPtr(light, (int)PTR_TO_ADDR(header));
         for (i = 0; i < header->m_numLights; i++) {
             EndianSwap(*(xyzProperty_Struct*)light);
             EndianSwap(*light);
-            offsetPtr(*(u32**)((u8*)light + 0x74), (int)header);
-            offsetPtr(*(f32**)((u8*)light + 0x78), (int)header);
-            f32* intensities = *(f32**)((u8*)light + 0x78);
+            offsetPtr(*(PTR32(u32)*)((u8*)light + 0x74), (int)PTR_TO_ADDR(header));
+            offsetPtr(*(PTR32(f32)*)((u8*)light + 0x78), (int)PTR_TO_ADDR(header));
+            f32* intensities = *(PTR32(f32)*)((u8*)light + 0x78);
             for (int f = 0; f < *(s16*)((u8*)light + 0x72); f++) {
                 Swap32((u8*)&intensities[f]);
             }
             light = (MOH_animatedLight_Struct*)((u8*)light + 0x7C);
         }
-        char* lights = (char*)header->m_lights;
-        offsetPtr(lights, (int)header);
+        PTR32(char) lights = (char*)header->m_lights;
+        offsetPtr(lights, (int)PTR_TO_ADDR(header));
         CLight::Register(lights, header->m_numLights);
     }
     if (header->m_lightVolumes != NULL) {
-        offsetPtr(header->m_lightVolumes, (int)header);
+        offsetPtr(header->m_lightVolumes, (int)PTR_TO_ADDR(header));
         for (i = 0; i < header->m_numLightVolumes; i++) {
             EndianSwap(header->m_lightVolumes[i]);
             BPDLightVolume* volume = &header->m_lightVolumes[i];
             if (volume->numPlanes > 0) {
-                offsetPtr(volume->planes, (int)header);
+                offsetPtr(volume->planes, (int)PTR_TO_ADDR(header));
                 for (int n = 0; n < header->m_lightVolumes[i].numPlanes; n++) {
                     BPDPlane* plane = &header->m_lightVolumes[i].planes[n];
                     Swap32((u8*)&plane->n[0]);
@@ -689,7 +695,7 @@ int PatchUpAllPropertyData(BPDHeader* header) {
             }
             volume = &header->m_lightVolumes[i];
             if (volume->numLights > 0) {
-                offsetPtr(volume->lights, (int)header);
+                offsetPtr(volume->lights, (int)PTR_TO_ADDR(header));
                 for (int n = 0; n < header->m_lightVolumes[i].numLights; n++) {
                     EndianSwap(header->m_lightVolumes[i].lights[n]);
                 }
@@ -699,7 +705,7 @@ int PatchUpAllPropertyData(BPDHeader* header) {
     PatchTweakers(header->m_tweakers0, header->m_numTweakers0, header);
     PatchTweakers(header->m_tweakers1, header->m_numTweakers1, header);
     if (header->m_polyPaths != NULL) {
-        offsetPtr(header->m_polyPaths, (int)header);
+        offsetPtr(header->m_polyPaths, (int)PTR_TO_ADDR(header));
         u8* path = (u8*)header->m_polyPaths;
         for (i = 0; i < header->m_numPolyPaths; i++, path += 0xC) {
             Swap32(path + 0x0);
@@ -761,17 +767,17 @@ int PatchUpAllPropertyData(BPDHeader* header) {
             case 9:
                 EndianSwap(*(MOH_particle_Struct*)prop);
                 PatchUpCore((MOH_core_Struct*)trigger->m_data);
-                offsetPtr(*(void**)((u8*)trigger->m_data + 0xEC), (int)header);
+                offsetPtr(*(PTR32(void)*)((u8*)trigger->m_data + 0xEC), (int)PTR_TO_ADDR(header));
                 break;
             case 14: {
                 EndianSwap(*(MOH_animatedLight_Struct*)prop);
                 PatchUpCore((MOH_core_Struct*)trigger->m_data);
                 u8* light = (u8*)trigger->m_data;
                 // (These offsets are relative to the record.)
-                offsetPtr(*(u32**)(light + 0x74), (int)record);
-                offsetPtr(*(f32**)(light + 0x78), (int)record);
+                offsetPtr(*(PTR32(u32)*)(light + 0x74), (int)PTR_TO_ADDR(record));
+                offsetPtr(*(PTR32(f32)*)(light + 0x78), (int)PTR_TO_ADDR(record));
                 for (int f = 0; f < *(s16*)(light + 0x72); f++) {
-                    Swap32((u8*)&(*(f32**)(light + 0x78))[f]);
+                    Swap32((u8*)&(*(PTR32(f32)*)(light + 0x78))[f]);
                 }
                 break;
             }
@@ -824,7 +830,7 @@ void LoadPropertyData(char* file, bool reset) {
         if (data->m_type == 0) {
             continue;
         }
-        const char* script = (const char*)Word(data, 0x40);
+        const char* script = ADDR_TO_PTR(const char, Word(data, 0x40));
         if (script != NULL) {
             CreateBSObject(script, &trigger->m_object, NULL, trigger, NULL);
             BSObjectTriggerEvent(trigger->m_object, BSEVENT_START, NULL, NULL, true);

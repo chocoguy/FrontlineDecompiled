@@ -15,7 +15,7 @@ int SFILTER_unpackpf(void* self, int frames, void* in, void* out, int flag) {
     }
     while (frames > 0) {
         if (s->pos >= s->len) {
-            s->data = (s16*)SNDPKTPLAYI_get(s->player, s->chan, &samples, &unused);
+            s->data = ADDR_TO_PTR(s16, SNDPKTPLAYI_get(s->player, s->chan, &samples, &unused));
             if (s->data == NULL) {
                 if (s->done != 0) {
                     memset(dest, 0, frames * 4);

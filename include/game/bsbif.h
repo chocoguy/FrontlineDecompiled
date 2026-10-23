@@ -7,17 +7,19 @@
 
 #include "types.h"
 
-typedef void (*BSBuiltInFunc)(int** sp, void* self);
+typedef void BSBuiltInFuncType(int** sp, void* self);
+typedef BSBuiltInFuncType* BSBuiltInFunc;
 
-// size 0x10
+// An entry of the level's built-in function table (bsbifunc.dat), size 0x10.
 struct BSBuiltInFunction_struct {
-    /* 0x0 */ BSBuiltInFunc m_func;
+    /* 0x0 */ PTR32(BSBuiltInFuncType) m_func;  // set when the table is loaded
     /* 0x4 */ u32 m_crc;  // CRC of the function name the script imports
     /* 0x8 */ s16 field_0x8;
     /* 0xA */ s16 m_popCount;
     /* 0xC */ s16 m_numArgs;
     /* 0xE */ u8 unk_0xE[0x2];
 };
+FILE_SIZE_ASSERT(BSBuiltInFunction_struct, 0x10);
 
 extern BSBuiltInFunction_struct* g_pBuiltInFunctions;
 extern int g_iCurrentBIFIndex;

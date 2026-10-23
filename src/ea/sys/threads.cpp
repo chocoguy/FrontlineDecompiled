@@ -43,7 +43,7 @@ extern "C" int THREAD_iscurrent(int thread) {
     } else if (thread == -1) {
         other = OSGetCurrentThread();
     } else {
-        other = (OSThread*)thread;
+        other = ADDR_TO_PTR(OSThread, thread);
     }
     return current == other;
 }

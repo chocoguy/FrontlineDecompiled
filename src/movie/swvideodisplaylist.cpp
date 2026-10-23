@@ -30,7 +30,7 @@ static void YUV_WriteRow(unsigned char* y, unsigned char* u, unsigned char* v, c
     unsigned char* vp = v;
 
     // until the destination is aligned
-    while (i < half && ((u32)dst & 0xF) != 0) {
+    while (i < half && ((uptr)(dst) & 0xF) != 0) {
         *d++ = (y[yi] << 24) | (*up << 16) | (y[yi + 1] << 8) | *vp;
         yi += 2;
         up++;
@@ -97,7 +97,11 @@ static int YUV_convert(unsigned char** planes, int x, int y, int stride, int wid
     }
 
     int lineBytes = fbStride * 2;
+#ifdef FRONTLINE_NATIVE
+    char* base = (char*)xfb + x * 2;  // no uncached mirror natively
+#else
     char* base = (char*)xfb + 0x40000000 + x * 2;  // uncached
+#endif
     int line = y;
     int yOffset = 0;
     int next = 1;

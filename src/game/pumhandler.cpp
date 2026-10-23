@@ -541,11 +541,11 @@ PopUpMessageHandler::PopUpMessageHandler(char* text, char* index) {
     LevelFileContentsStruct_* level = TLT_FindNextResourceByType((TLTResourceID)0xB, NULL);
     void* font;
     if (g_bInMultiplayerMode) {
-        font = TLT_LoadFileFromLevelBigFile((char*)level->fields[3].value, NULL);
+        font = TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(char, level->fields[3].value), NULL);
     } else {
-        font = TLT_LoadFileFromLevelBigFile((char*)level->fields[44].value, NULL);
+        font = TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(char, level->fields[44].value), NULL);
     }
-    void* subtitleFont = TLT_LoadFileFromLevelBigFile((char*)level->fields[2].value, NULL);
+    void* subtitleFont = TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(char, level->fields[2].value), NULL);
     if (g_bInMultiplayerMode) {
         POPUPS_IN_SECTION = 2;
     }

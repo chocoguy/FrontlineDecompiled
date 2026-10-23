@@ -128,6 +128,43 @@ void GXBegin(u32 type, u32 vtxfmt, u16 nverts);
 #define GX_IDENTITY 60
 
 // Write-gather pipe for immediate-mode vertex data.
+#ifdef FRONTLINE_NATIVE
+// A hardware address on the console. Natively each write goes to the GX
+// layer, in host byte order: into the vertex stream, or to memory while
+// GXRedirectWriteGatherPipe is in effect.
+void GXNativePipe8(u8 v);
+void GXNativePipe16(u16 v);
+void GXNativePipe32(u32 v);
+void GXNativePipeF32(f32 v);
+#ifdef __cplusplus
+}  // extern "C"
+struct GXNativeWGPipe {
+    struct U8Port {
+        void operator=(unsigned char v) { GXNativePipe8(v); }
+    };
+    struct S16Port {
+        void operator=(short v) { GXNativePipe16((unsigned short)v); }
+    };
+    struct U16Port {
+        void operator=(unsigned short v) { GXNativePipe16(v); }
+    };
+    struct U32Port {
+        void operator=(unsigned int v) { GXNativePipe32(v); }
+    };
+    struct F32Port {
+        void operator=(float v) { GXNativePipeF32(v); }
+    };
+    U8Port u8;
+    S16Port s16;
+    U16Port u16;
+    U32Port u32;
+    F32Port f32;
+};
+extern GXNativeWGPipe GXNativeWGFifo;
+#define GXWGFifo GXNativeWGFifo
+extern "C" {
+#endif
+#else
 typedef union {
     u8 u8;
     s16 s16;
@@ -136,6 +173,7 @@ typedef union {
     f32 f32;
 } PPCWGPipe;
 #define GXWGFifo (*(volatile PPCWGPipe*)0xCC008000)
+#endif
 
 static inline void GXPosition3s16(s16 x, s16 y, s16 z) {
     GXWGFifo.s16 = x;

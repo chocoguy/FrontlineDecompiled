@@ -112,7 +112,7 @@ void SNDI_patchtohdr(void* bank, TAGGEDPATCH* patch, SNDSAMPLEFORMAT* format, SN
         }
         attr->unk_0xC[i] = sndgs.chanAzimuth[format->channels - 1][i] + azimuth[i];
         if ((attr->renderMode & 0x14) || attr->renderMode == 0) {
-            desc->offset[i] = (int)bank + desc->offset[i];
+            desc->offset[i] = (int)PTR_TO_ADDR(bank) + desc->offset[i];
         }
         if ((attr->renderMode & 0x308) && offsets != NULL) {
             if (i == 0) {

@@ -8,7 +8,7 @@ extern "C" void MIX_setpitch(int voice, int pitch) {
         pitch = 0x40000;
     }
     if (mv->rsf == NULL) {
-        mv->rsf = (RSFSTATE*)SNDMEMI_allocz(0x3C);
+        mv->rsf = (RSFSTATE*)SNDMEMI_allocz(GC_SIZE(0x3C, sizeof(RSFSTATE)));
         if (sndmix.quality >= 50) {
             hq = 1;
         }

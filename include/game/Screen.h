@@ -103,7 +103,7 @@ public:
     static int GetVSyncs();  // 0x8001B908
     static CScreen* GetCurrent();  // 0x8001BE68
     static void Init();  // 0x8001BE70
-    static void VBlankHandler(unsigned long);  // 0x8001BF1C
+    static void VBlankHandler(u32);  // 0x8001BF1C
 };
 
 // The screen as interlaced fields (size 0x110); vtable 0x80181D64

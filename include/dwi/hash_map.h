@@ -65,7 +65,7 @@ public:
             return end();
         }
         last = m_table + m_capacity;
-        e = m_table + (u32)key % m_capacity;
+        e = m_table + (uptr)(key) % m_capacity;
         for (;;) {
             if (e->key == (K)-1) {
                 return last;
@@ -80,7 +80,7 @@ public:
     }
 
     void insert(K key, V value) {
-        entry* e = m_table + (u32)key % m_capacity;
+        entry* e = m_table + (uptr)(key) % m_capacity;
         while (e->key != (K)-1) {
             if (++e == m_table + m_capacity) {
                 e = m_table;
@@ -104,12 +104,12 @@ public:
         if (e->key == (K)-1) {
             return;
         }
-        u32 home = (u32)e->key % m_capacity;
+        u32 home = (uptr)(e->key) % m_capacity;
         entry* hole = e;
         entry* from = next(e);
         for (;;) {
             bool used = from->key != (K)-1;
-            while (used && (u32)from->key % m_capacity != home) {
+            while (used && (uptr)(from->key) % m_capacity != home) {
                 from = next(from);
                 used = from->key != (K)-1;
             }
@@ -119,7 +119,7 @@ public:
             }
             hole = next(hole);
             from = next(from);
-            while ((u32)hole->key % m_capacity != home) {
+            while ((uptr)(hole->key) % m_capacity != home) {
                 hole = next(hole);
             }
         }

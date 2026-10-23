@@ -158,7 +158,7 @@ void CPlayerObject::DropMPDumpObject() {
 void CPlayerObject::SetMPShotLocation(BS_STRUCT_HitByBulletInfo_struct* hit) {
     CPlayerObject* shooter = hit->m_firedBy->m_gameObject->GetSceneNode()->AsPlayerObject();
     if (hit->m_damage != 0 && *(int*)m_pScriptObject->m_gameObject->GetScriptData() > 0) {
-        g_Shell.Add_MPShotLocation(shooter->m_playerIndex, m_playerIndex, 1, ShotLocation((int)hit->m_pPoly));
+        g_Shell.Add_MPShotLocation(shooter->m_playerIndex, m_playerIndex, 1, ShotLocation((int)PTR_TO_ADDR(hit->m_pPoly)));
     }
 }
 
@@ -880,7 +880,7 @@ int CPlayerObject::CycleWeapon(int dir, int only) {
         m_curWeapon = next;
         m_weapons[m_curWeapon]->m_active = 1;
         int* data = (int*)m_pScriptObject->m_gameObject->GetScriptData();
-        data[2] = (int)m_weapons[m_curWeapon];
+        data[2] = (int)PTR_TO_ADDR(m_weapons[m_curWeapon]);
         if (m_weapons[m_curWeapon] != NULL) {
             data[1] = m_weapons[m_curWeapon]->m_pWeapon->m_weaponType;
         } else {
@@ -965,6 +965,7 @@ void CPlayerObject::Orthonormalize() {
 int CPlayerObject::Yaw(float angle) {
     m_tm.RotateZ(angle);
     m_yaw += angle;
+    END_RETURN_NOTHING
 }
 
 void CPlayerObject::Roll(float) {}
@@ -1209,7 +1210,7 @@ bool CPlayerObject::AddAmmoOrWeapon(int crc, int amount, void* pickup) {
             displayPromptBuffer(field_0x768);
         }
         if (m_curWeapon < 0) {
-            TriggerScriptEvent(0xA2, (void*)sound, false);
+            TriggerScriptEvent(0xA2, ADDR_TO_PTR(void, sound), false);
             CycleWeapon(1, -1);
         }
         used = true;
@@ -1233,7 +1234,7 @@ bool CPlayerObject::AddAmmoOrWeapon(int crc, int amount, void* pickup) {
         if (newWeapon) {
             slot->DoneReloading();
         }
-        TriggerScriptEvent(0xA2, (void*)sound, false);
+        TriggerScriptEvent(0xA2, ADDR_TO_PTR(void, sound), false);
     }
     if ((used || g_bInMultiplayerMode) && pickup != NULL) {
         MarkDumpObjectForDestruction(pickup);
@@ -1272,6 +1273,7 @@ int CPlayerObject::SetPlayersMountedMGPositions(CMatrix* gunTM) {
     muzzle.Multiply(m_mgMuzzleTM, muzzle);
     m_pMGWeapon->m_aimDir = *(CVector3*)muzzle.m[1];
     m_pMGWeapon->m_aimOrigin = *(CVector3*)muzzle.m[3];
+    END_RETURN_NOTHING
 }
 
 const IVolume* CPlayerObject::GetWorldBoundingVolume(ISceneNode::EVolumeType type) const {
@@ -1417,7 +1419,7 @@ void CPlayerObject::HandleBulletCollision(CBullet* bullet, const CCollision& cls
                 event->m_damage = 0;
             }
             event->m_pPoly = clsn.m_pContacts->m_pPoly;
-            int location = (int)event->m_pPoly;
+            int location = (int)PTR_TO_ADDR(event->m_pPoly);
             if (location < 9) {
                 if (location == 2) {
                     event->m_damage = (float)event->m_damage;
@@ -1438,7 +1440,7 @@ void CPlayerObject::HandleBulletCollision(CBullet* bullet, const CCollision& cls
             CPlayerObject* attacker = event->m_firedBy->m_gameObject->GetSceneNode()->AsPlayerObject();
             if (event->m_damage != 0 && *(int*)m_pScriptObject->m_gameObject->GetScriptData() > 0) {
                 g_Shell.Add_MPShotLocation(attacker->m_playerIndex, m_playerIndex, 1,
-                                           ShotLocation((int)event->m_pPoly));
+                                           ShotLocation((int)PTR_TO_ADDR(event->m_pPoly)));
             }
         }
         BSObjectTriggerEvent(m_pScriptObject, 0x2B, event, NULL, false);
@@ -1597,6 +1599,7 @@ int CPlayerObject::AttemptUpdate(float dt) {
         m_contacts.m_size = 0;
     }
     m_groundZ = 0.0f;
+    END_RETURN_NOTHING
 }
 
 // Multiplayer: the body's walk animation (speed and direction). Single
@@ -1670,7 +1673,7 @@ int CPlayerObject::CommitUpdate() {
             m_velocity.x = 0.0f;
             m_onGround = 1;
             AttemptUpdate(0.0f);
-            return;
+            RETURN_NOTHING;
         }
         toggle = true;
     } else {
@@ -1702,11 +1705,11 @@ int CPlayerObject::CommitUpdate() {
     field_0x288 = *(CVector3*)m_tm.m[3];
     m_eyeHeight = m_localCapsule.m_line.m_end.z;
     if (m_pMGWeapon == NULL) {
-        return;
+        RETURN_NOTHING;
     }
     m_pMGWeapon->Update(m_dt, !m_onMG);
     if (!m_pMGWeapon->m_fired) {
-        return;
+        RETURN_NOTHING;
     }
     if (m_pMGWeapon != m_pMGCannon) {
         CParticleSystem* ps = CParticleSystem::Create(0x2C0C51FB);
@@ -1718,11 +1721,11 @@ int CPlayerObject::CommitUpdate() {
     }
     g_Shell.Set_shotsFired(1, false);
     if (!m_mgEjects) {
-        return;
+        RETURN_NOTHING;
     }
     CThrownObject* casing = CreateSpecialThrownObject(NULL, 0x9AB689E6, -1);
     if (casing == NULL) {
-        return;
+        RETURN_NOTHING;
     }
     casing->SetCollisionId((EClsnId)-1);
     CMatrix tm;
@@ -1747,6 +1750,7 @@ int CPlayerObject::CommitUpdate() {
     spin.RotateZ(rz);
     casing->m_spin.SetFromMatrix(spin);
     casing->BeginUpdate(1.0f);
+    END_RETURN_NOTHING
 }
 
 // Slides the velocity along this frame's contacts: off the plane it pushes
@@ -2331,7 +2335,7 @@ int CPlayerObject::Init() {
     m_dead = 0;
     if (g_pMGCrossHair == NULL) {
         LevelFileContentsStruct_* res = TLT_FindNextResourceByType((TLTResourceID)0xB, NULL);
-        g_pMGCrossHair = ::new (&g_pMGCrossHairMem) CSprite((char*)res->fields[29].value, (CSprite::ESpriteLoadType)1, (ERenderPriority)0xA);
+        g_pMGCrossHair = ::new (&g_pMGCrossHairMem) CSprite(ADDR_TO_PTR(char, res->fields[29].value), (CSprite::ESpriteLoadType)1, (ERenderPriority)0xA);
     }
     field_0x6F4 = g_pMGCrossHair;
     if (m_pMuzzleFlashSprite == NULL) {
@@ -2341,6 +2345,7 @@ int CPlayerObject::Init() {
     m_playerIndex = 0;
     field_0x768 = 0;
     field_0x1298 = 0;
+    END_RETURN_NOTHING
 }
 
 CPlayerObject::CPlayerObject() : m_contacts(-1) {
@@ -3301,7 +3306,7 @@ int CPlayerObject::BeginUpdate(float dt) {
                 m_ui.AddHitDirection(4);
                 m_ui.AddHitDirection(2);
                 g_inputMgr.SetFeedback(m_controllerPort, 0xC, 0, 1.0f, 1.1f);
-                TriggerScriptEvent(0xE8, (void*)((int)(fall - 4.0f) * 5), false);
+                TriggerScriptEvent(0xE8, ADDR_TO_PTR(void, ((int)(fall - 4.0f) * 5)), false);
             }
         }
     }
@@ -3434,7 +3439,7 @@ int CPlayerObject::BeginUpdate(float dt) {
     if (!fired && !m_hideWeapon && (m_curWeapon >= 0 || m_onMG)) {
         if (fire != 0.0f) {
             if (m_fireDelay <= 0) {
-                BSObjectTriggerEvent(m_pScriptObject, 0x10, *(void**)&fire, NULL, true);
+                BSObjectTriggerEvent(m_pScriptObject, 0x10, ADDR_TO_PTR(void, *(u32*)&fire), NULL, true);
                 m_lastFire = fire;
                 if (m_onMG && m_pMGWeapon != m_pMGCannon) {
                     if (!m_mgHier) {
@@ -3461,7 +3466,7 @@ int CPlayerObject::BeginUpdate(float dt) {
             }
         } else if (m_lastFire != 0.0f) {
             // Released.
-            BSObjectTriggerEvent(m_pScriptObject, 0x94, *(void**)&fire, NULL, true);
+            BSObjectTriggerEvent(m_pScriptObject, 0x94, ADDR_TO_PTR(void, *(u32*)&fire), NULL, true);
             if (m_onMG) {
                 m_pMGWeapon->Shoot((EWeaponShootType)1, 0.0f, -1.0f);
             } else {
@@ -3522,4 +3527,5 @@ done:
     if (g_inputMgr.GetValue(m_controllerPort, INPUT_HINT) != 0 && !g_bInMultiplayerMode) {
         DisplayHint();
     }
+    END_RETURN_NOTHING
 }

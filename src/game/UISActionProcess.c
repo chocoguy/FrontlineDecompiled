@@ -38,8 +38,8 @@ static inline UISParam_t* RecordParams(u32* top) {
 
 static inline void ActivateControl(UISInfo_t* info, u8 activate, UISThreadGroupInfoT* g) {
     if (g->sh[1] == 0) {
-        UISInternalActivateControl(info, activate, g->sh[0], (UISControlInfo_t*)g->w[2],
-                                   (UISControlList_t*)g->w[1], g->h[6], g->h[7]);
+        UISInternalActivateControl(info, activate, g->sh[0], ADDR_TO_PTR(UISControlInfo_t, g->w[2]),
+                                   ADDR_TO_PTR(UISControlList_t, g->w[1]), g->h[6], g->h[7]);
         g->sh[1] = 1;
     }
 }

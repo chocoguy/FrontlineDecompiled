@@ -43,7 +43,7 @@ extern "C" void* MEM_resize(void* ptr, int size) {
 
     MEM_move((u8*)ptr + newSize, (u8*)ptr + block->size, tail);
     block->size = size;
-    end = (MEMBLOCK*)(((u32)ptr + newSize + tail + mask) & ~mask);
+    end = (MEMBLOCK*)(((uptr)(ptr) + newSize + tail + mask) & ~mask);
     if (((u8*)next - (u8*)end) / 0x10 > 0x30) {
         MEM_initblock(end, NULL, 0, 0, 0, block, next);
         FREE_add(mc, end);

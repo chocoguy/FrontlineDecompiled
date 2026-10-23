@@ -28,9 +28,9 @@ struct BPDPlane {
 struct BPDLightVolume {
     /* 0x00 */ u8 unk_0x0[0x18];
     /* 0x18 */ int numPlanes;  // the volume is the intersection of these
-    /* 0x1C */ BPDPlane* planes;
+    /* 0x1C */ PTR32(BPDPlane) planes;
     /* 0x20 */ int numLights;
-    /* 0x24 */ BPDLight* lights;
+    /* 0x24 */ PTR32(BPDLight) lights;
     /* 0x28 */ int priority;
     /* 0x2C */ u8 unk_0x2C[0x4];
 };

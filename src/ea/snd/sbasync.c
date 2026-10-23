@@ -175,6 +175,9 @@ void SNDBANKI_asyncserver() {
     slot->data = sndbas.cur->header;
     data = slot->data;
     slot->aram = sndbas.cur->aram;
+#ifdef FRONTLINE_NATIVE
+    SNDBankFromBigEndian(data);
+#endif
     if (data->sampleSize != 0) {
         int state = 0;
         int i;
@@ -225,6 +228,9 @@ void SNDBANKI_asyncservice() {
     iSNDserverremoveclient(SNDBANKI_asyncservice);
     sndbas.cur->active = 0;
     sndbas.cur->header = (BANKVER5*)b->blocks[0].buffer;
+#ifdef FRONTLINE_NATIVE
+    SNDBankHeaderFromBigEndian(sndbas.cur->header);
+#endif
     sndbas.cur->headerLeft = sndbas.cur->header->headerSize;
     sndbas.cur->total = sndbas.cur->header->headerSize;
     sndbas.cur->sampleLeft = sndbas.cur->header->sampleSize;
@@ -276,7 +282,7 @@ extern "C" int SNDBANK_asyncload(const char* name, int offset, void* buffer, int
         blk->state = 0;
         blk->buffer = (u8*)b + (sndbas.cur->blockSize + 0x40) * i + 0xC0;
         blk->buffer += 0x40;
-        blk->buffer = (u8*)((u32)blk->buffer & ~0x3F);
+        blk->buffer = (u8*)((uptr)(blk->buffer) & ~0x3F);
     }
     for (i = 0; i < sndgs.opts.caps.maxBanks; i++) {
         if (sndgs.banks[i].data == NULL) {

@@ -14,7 +14,7 @@ struct ShapeFile;
 // size 0x40
 class CTexture {
 public:
-    /* 0x00 */ void* m_pData;  // ShapeFile* once loaded (offset in a texture pack file)
+    /* 0x00 */ PTR32(void) m_pData;  // ShapeFile* once loaded (offset in a texture pack file)
     /* 0x04 */ u8 unk_0x4[0x4];
     /* 0x08 */ GXTexObj m_texObj;
     /* 0x28 */ GXTlutObj m_tlut;
@@ -30,5 +30,6 @@ public:
     void Set(Shape* shape, bool);  // 0x80082AB0
     int Load(CDmaPacket&, CRenderList*);  // 0x80082A60
 };
+FILE_SIZE_ASSERT(CTexture, 0x40);  // also a record in texture pack files
 
 #endif

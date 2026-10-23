@@ -8,7 +8,7 @@
 #include "game/scene.h"
 
 // The anim object's root bone matrix (CAnimObject + 0xF40, not typed yet).
-#define ANIM_ROOT_BONE(anim) (*(const CMatrix*)((const u8*)(anim) + 0xF40))
+#define ANIM_ROOT_BONE(anim) (*(const CMatrix*)(anim)->m_bones)
 
 
 // Copies hard point `id`'s matrix to its slot; returns the slot (0 when the
@@ -177,4 +177,5 @@ int CAttachableObject::CommitUpdate() {
             MoveAttached(this, i);
         }
     }
+    END_RETURN_NOTHING
 }

@@ -23,7 +23,7 @@ extern "C" int MEMCLASS_create(int id, const char* name, void* base, int size, i
     if (named) {
         flags |= MB_NAME;
     }
-    mid = (MEMBLOCK*)((((u32)base + (tailSize + 0x9C) + dataAlign - 1) & ~(dataAlign - 1)) - 0x10);
+    mid = (MEMBLOCK*)((((uptr)(base) + (tailSize + 0x9C) + dataAlign - 1) & ~(dataAlign - 1)) - 0x10);
     high = (MEMBLOCK*)((u8*)base + (size - 0x30) - tailSize);
     mc = (MEMCLASS*)MEM_data(low);
 

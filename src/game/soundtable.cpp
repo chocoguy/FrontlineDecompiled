@@ -5,23 +5,37 @@
 CSoundTable g_soundMapSingleton;
 
 static inline void Swap16(s16& v) {
+#ifdef FRONTLINE_NATIVE
+    return;  // little-endian data on a little-endian CPU: nothing to swap
+#endif
     u16 u = (u16)v;
     v = (s16)((u >> 8) | (u << 8));
 }
 
 template <class T>
 static inline void Swap32(T& v) {
+#ifndef FRONTLINE_NATIVE  // little-endian data on a little-endian CPU: nothing to swap
     u32 u = (u32)v;
     v = (T)((u >> 24) | ((u >> 8) & 0xFF00) | ((u << 8) & 0xFF0000) | (u << 24));
+#endif
 }
 
 // File offsets to pointers (NULL stays NULL).
+#ifdef FRONTLINE_NATIVE
+template <class T>
+static void offsetPtr(ptr32<T>& p, int base) {
+    if (p.addr() != 0) {
+        p.setAddr(p.addr() + base);
+    }
+}
+#else
 template <class T>
 static void offsetPtr(T*& p, int base) {
     if (p != NULL) {
         p = (T*)((char*)p + base);
     }
 }
+#endif
 
 static inline void SwapParms(CSoundTable::SSoundParms& parms) {
     Swap16(parms.m_randomMin);
@@ -56,12 +70,12 @@ void CSoundTable::EndianSwap() {
 
 void CSoundTable::Init(int mission, int stage) {
     LevelFileContentsStruct_* level = TLT_FindNextResourceByType((TLTResourceID)0xC, NULL);
-    m_events = (SEventFile*)TLT_LoadFileFromLevelBigFile((const char*)level->fields[11].value, NULL);
-    m_anims = (SAnimFile*)TLT_LoadFileFromLevelBigFile((const char*)level->fields[12].value, NULL);
+    m_events = (SEventFile*)TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(const char, level->fields[11].value), NULL);
+    m_anims = (SAnimFile*)TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(const char, level->fields[12].value), NULL);
     EndianSwap();
     if (m_events != NULL) {
-        offsetPtr(m_events->m_keys, (int)m_events);
-        offsetPtr(m_events->m_parms, (int)m_events);
+        offsetPtr(m_events->m_keys, (int)PTR_TO_ADDR(m_events));
+        offsetPtr(m_events->m_parms, (int)PTR_TO_ADDR(m_events));
         for (int i = 0; i < m_events->m_numKeys; i++) {
             SKey& key = m_events->m_keys[i];
             Swap16(key.m_bank);
@@ -74,7 +88,7 @@ void CSoundTable::Init(int mission, int stage) {
         }
     }
     if (m_anims != NULL) {
-        offsetPtr(m_anims->m_entries, (int)m_anims);
+        offsetPtr(m_anims->m_entries, (int)PTR_TO_ADDR(m_anims));
         for (int i = 0; i < m_anims->m_count; i++) {
             SAnimEntry& entry = m_anims->m_entries[i];
             Swap16(entry.m_id);

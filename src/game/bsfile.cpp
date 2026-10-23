@@ -69,11 +69,11 @@ int BSFileReadClass(const char* name, bool, bool, BSClass_struct** out) {
     (*out)->m_sinFile = sin;
 
     if ((*out)->m_numStrings > 0) {
-        (*out)->m_strings = (char**)(sin + (u32)(*out)->m_strings);
+        (*out)->m_strings = (PTR32(char)*)(sin + (u32)PTR_TO_ADDR((*out)->m_strings));
         offset = (*out)->m_numStrings * 4 + BSFILE_DATA_OFFSET;
         for (int i = 0; i < (*out)->m_numStrings; i++) {
             EndianSwap((*out)->m_strings[i]);
-            (*out)->m_strings[i] = (char*)(sin + (u32)(*out)->m_strings[i]);
+            (*out)->m_strings[i] = (char*)(sin + (u32)PTR_TO_ADDR((*out)->m_strings[i]));
             u32 len = strlen((*out)->m_strings[i]) + 1;
             if (len & 3) {
                 len += 4 - (len & 3);
@@ -95,7 +95,7 @@ int BSFileReadClass(const char* name, bool, bool, BSClass_struct** out) {
         EndianSwap(*(s16*)&code->field_0x16);
         code->m_code = (u32*)(sin + offset);
         offset += (code->m_numInherited + 1) * 4;
-        code->m_handlers = (BSHandler_struct**)(sin + offset);
+        code->m_handlers = (PTR32(BSHandler_struct)*)(sin + offset);
         offset += code->m_numHandlers * 4;
 
         for (u32 h = 0; h < code->m_numHandlers; h++) {
@@ -193,9 +193,9 @@ int BSFileReadClass(const char* name, bool, bool, BSClass_struct** out) {
         BSCode_struct* code = &(*out)->m_threads[t];
         u8 inherited = code->m_numInherited;
         if (n != 0) {
-            code->m_code[inherited] = (u32)(cbs + cbsOffset);
+            code->m_code[inherited] = (u32)PTR_TO_ADDR((cbs + cbsOffset));
             cbsOffset += n * 4;
-            u32* words = (u32*)(*out)->m_threads[t].m_code[inherited];
+            u32* words = ADDR_TO_PTR(u32, (*out)->m_threads[t].m_code[inherited]);
             for (int i = 0; i < (int)n; i++) {
                 EndianSwap(words[i]);
             }

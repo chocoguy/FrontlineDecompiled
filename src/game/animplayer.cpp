@@ -42,6 +42,7 @@ int CAnimatedPlayer::CommitUpdate() {
     m_lastHeading = m_heading;
     m_lastRootPos.Copy(m_rootPos);
     m_lastRootRot = m_rootRot;
+    END_RETURN_NOTHING
 }
 
 int CAnimatedPlayer::AttemptUpdate(float dt) {
@@ -50,16 +51,17 @@ int CAnimatedPlayer::AttemptUpdate(float dt) {
     if (m_pPlayer->m_dead) {
         m_pWeapons[m_curWeapon]->m_muzzleFlash = 0;
         m_pWeapons[m_curWeapon]->m_drawEnabled = 0;
-        return;
+        RETURN_NOTHING;
     }
     m_pWeapons[m_curWeapon]->m_muzzleFlash = held->GetMuzzleFlashStatus();
     // A rocket launcher is shown empty while it reloads.
     if (held->m_refireTime > 60.0f &&
         (m_pWeapons[m_curWeapon]->m_weaponType == 0x21 || m_pWeapons[m_curWeapon]->m_weaponType == 0x22)) {
         m_pWeapons[m_curWeapon]->m_drawEnabled = 0;
-        return;
+        RETURN_NOTHING;
     }
     m_pWeapons[m_curWeapon]->m_drawEnabled = 1;
+    END_RETURN_NOTHING
 }
 
 // CAnimObject::BeginUpdate without gravity: the player sets the position.
@@ -80,6 +82,7 @@ int CAnimatedPlayer::BeginUpdate(float dt) {
     m_velocity.y = 0.0f;
     m_velocity.x = 0.0f;
     m_constrained = 0;
+    END_RETURN_NOTHING
 }
 
 void CAnimatedPlayer::UpdateLocalBoundingVolume(ISceneNode::EVolumeType type, const CVector3& min,
@@ -337,6 +340,7 @@ int CAnimatedPlayer::Init() {
     m_headTransOffset.x = 0.0f;
     m_flocoTime = 0.0f;
     m_flocoState = 0;
+    END_RETURN_NOTHING
 }
 
 CAnimatedPlayer::~CAnimatedPlayer() {}

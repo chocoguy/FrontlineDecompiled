@@ -261,6 +261,15 @@ static inline void RestoreTriGroups(dwi::fast_vec<CDBTriGroup*>& groups) {
     }
 }
 
+#ifdef FRONTLINE_NATIVE
+// Standard C++ wants the line specialization (defined below) declared before
+// its first use; CodeWarrior didn't.
+template <>
+int CCDBObject::TestCDBBranchNodeCollision<CLine3>(const CDBBranchNode& root, const CLine3& line,
+                                                   CCollision& collision, bool contacts,
+                                                   dwi::fast_vec<CDBTriGroup*>& groups) const;
+#endif
+
 int CCDBObject::TestCollision(const CLine3& line, CCollision& collision, bool contacts) const {
     PROFILE_BEGIN(PROFBIN_CDB_LINE);
     OSGetTick();
@@ -477,21 +486,24 @@ CCDBObject::~CCDBObject() {}
 
 void CCDBObject::Init(CDB* cdb) {
     m_cdb = cdb;
+#ifdef FRONTLINE_NATIVE
+    CDBFromBigEndian(cdb);
+#endif
     CDB* base = m_cdb;
-    offsetPtr(base->m_tris, (int)base);
-    offsetPtr(m_cdb->m_triGroups, (int)base);
-    offsetPtr(m_cdb->m_leaves, (int)base);
-    offsetPtr(m_cdb->m_branches, (int)base);
-    offsetPtr(m_cdb->surfaceTypes, (int)base);
+    offsetPtr(base->m_tris, (int)PTR_TO_ADDR(base));
+    offsetPtr(m_cdb->m_triGroups, (int)PTR_TO_ADDR(base));
+    offsetPtr(m_cdb->m_leaves, (int)PTR_TO_ADDR(base));
+    offsetPtr(m_cdb->m_branches, (int)PTR_TO_ADDR(base));
+    offsetPtr(m_cdb->surfaceTypes, (int)PTR_TO_ADDR(base));
 
     CDBTriGroup* group = m_cdb->m_triGroups;
     for (int i = 0; i < m_cdb->m_numTriGroups; i++) {
         for (int j = 0; j < group->m_count; j++) {
-            offsetPtr(group->m_tris[j], (int)base);
+            offsetPtr(group->m_tris[j], (int)PTR_TO_ADDR(base));
             CDBTri* tri = group->m_tris[j];
-            offsetPtr(tri->m_verts[0], (int)base);
-            offsetPtr(tri->m_verts[1], (int)base);
-            offsetPtr(tri->m_verts[2], (int)base);
+            offsetPtr(tri->m_verts[0], (int)PTR_TO_ADDR(base));
+            offsetPtr(tri->m_verts[1], (int)PTR_TO_ADDR(base));
+            offsetPtr(tri->m_verts[2], (int)PTR_TO_ADDR(base));
         }
         group = (CDBTriGroup*)((u8*)group + group->m_count * 4 + 0x14);
     }
@@ -499,15 +511,15 @@ void CCDBObject::Init(CDB* cdb) {
     CDBLeafNode* leaf = m_cdb->m_leaves;
     for (int i = 0; i < m_cdb->m_numLeaves; i++) {
         for (int j = 0; j < leaf->m_count; j++) {
-            offsetPtr(leaf->m_groups[j], (int)base);
+            offsetPtr(leaf->m_groups[j], (int)PTR_TO_ADDR(base));
         }
         leaf = (CDBLeafNode*)((u8*)leaf + leaf->m_count * 4 + 0x44);
     }
 
     CDBBranchNode* branch = m_cdb->m_branches;
     for (int i = 0; i < m_cdb->m_numBranches; i++) {
-        offsetPtr(branch->m_front, (int)base);
-        offsetPtr(branch->m_back, (int)base);
+        offsetPtr(branch->m_front, (int)PTR_TO_ADDR(base));
+        offsetPtr(branch->m_back, (int)PTR_TO_ADDR(base));
         branch++;
     }
 

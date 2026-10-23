@@ -22,7 +22,7 @@ struct GMSecret {
 static inline u32 GMParam(UISParam_t* params, int i) { return params[i].value; }
 
 static inline char* GMText(UISParam_t* params, int i) {
-    return ((UISString_t*)params[i].value)->text;
+    return (ADDR_TO_PTR(UISString_t, params[i].value))->text;
 }
 
 // Handles a game message posted by the iSiren shell / pause screen scripts.
@@ -162,9 +162,9 @@ void GameMessage(unsigned long message, unsigned short, unsigned short, unsigned
         unsigned int info;
         DebugMsg("Memory Card Get Next Save Game %d %d\n", GMParam(params, 0), GMParam(params, 1));
         result[0].value = g_Shell.MemoryCardGetNextSaveGame(GMParam(params, 0) - 1,
-                                                            (unsigned int*)GMParam(params, 1), &info,
+                                                            ADDR_TO_PTR(unsigned int, GMParam(params, 1)), &info,
                                                             GMText(params, 2));
-        ((UISString_t*)GMParam(params, 2))->maxLength = strlen(GMText(params, 2));
+        (ADDR_TO_PTR(UISString_t, GMParam(params, 2)))->maxLength = strlen(GMText(params, 2));
         if (result[0].value == 1) {
             DebugMsg("Memory Card Get Next Save Game returning %s\n", GMText(params, 2));
         } else {
@@ -187,14 +187,14 @@ void GameMessage(unsigned long message, unsigned short, unsigned short, unsigned
     case 0x96:
         DebugMsg("Getting cumulative player stats for the level\n");
         if (g_Shell.field_0x19A9 == 0) {
-            memcpy((void*)GMParam(params, 0), g_Shell.GetCumulativeStats(), 0x40);
+            memcpy(ADDR_TO_PTR(void, GMParam(params, 0)), g_Shell.GetCumulativeStats(), 0x40);
             result[0].value = 0x10;
         }
         break;
     case 0xA0:
         DebugMsg("Getting per level player stats\n");
         if (g_Shell.field_0x19A9 == 0) {
-            memcpy((void*)GMParam(params, 0), g_Shell.GetLevelStats(), 0x54);
+            memcpy(ADDR_TO_PTR(void, GMParam(params, 0)), g_Shell.GetLevelStats(), 0x54);
         }
         result[0].value = 0x15;
         break;
@@ -217,7 +217,7 @@ void GameMessage(unsigned long message, unsigned short, unsigned short, unsigned
         g_Shell.field_0x199A = 0;
         break;
     case 0xAA:
-        result[0].value = g_Shell.PassMedalStatusToIStudio((int*)GMParam(params, 0));
+        result[0].value = g_Shell.PassMedalStatusToIStudio(ADDR_TO_PTR(int, GMParam(params, 0)));
         break;
     case 0xA5:
         DebugMsg("Getting Evaluation messages\n");
@@ -225,10 +225,10 @@ void GameMessage(unsigned long message, unsigned short, unsigned short, unsigned
         strcpy(GMText(params, 1), g_Shell.GetEvalMessage());
         break;
     case 0xBE:
-        result[0].value = g_Shell.PassLevelsCompletedToIStudio((int*)GMParam(params, 0));
+        result[0].value = g_Shell.PassLevelsCompletedToIStudio(ADDR_TO_PTR(int, GMParam(params, 0)));
         break;
     case 0xC3:
-        result[0].value = g_Shell.PassLevelsRatingsToIStudio((int*)GMParam(params, 0));
+        result[0].value = g_Shell.PassLevelsRatingsToIStudio(ADDR_TO_PTR(int, GMParam(params, 0)));
         break;
     case 0x15E:
         result[0].value = 1;
@@ -246,11 +246,11 @@ void GameMessage(unsigned long message, unsigned short, unsigned short, unsigned
         g_Shell.PlayRewardMovie(GMParam(params, 0));
         break;
     case 0x1E:
-        result[0].value = g_Shell.PassSecretsToIStudio((int*)GMParam(params, 0));
+        result[0].value = g_Shell.PassSecretsToIStudio(ADDR_TO_PTR(int, GMParam(params, 0)));
         break;
     case 0x14: {
         GMSecret secrets[10];
-        memcpy(secrets, (void*)GMParam(params, 0), sizeof(secrets));
+        memcpy(secrets, ADDR_TO_PTR(void, GMParam(params, 0)), sizeof(secrets));
         for (int i = 0; i < 10; i++) {
             if (secrets[i].found == 0) {
                 g_Shell.SetIndividualSecretsStatus(i + 1, 0);
@@ -264,7 +264,7 @@ void GameMessage(unsigned long message, unsigned short, unsigned short, unsigned
     }
     case 0x12C:
         result[0].value =
-            g_Shell.GetGalleryMoviesUnlocked((int*)GMParam(params, 0), (int*)GMParam(params, 1));
+            g_Shell.GetGalleryMoviesUnlocked(ADDR_TO_PTR(int, GMParam(params, 0)), ADDR_TO_PTR(int, GMParam(params, 1)));
         break;
     case 0x122:
         g_Shell.PlayGalleryMovie(GMParam(params, 0), GMParam(params, 1), GMParam(params, 2),
@@ -291,8 +291,8 @@ void GameMessage(unsigned long message, unsigned short, unsigned short, unsigned
         unsigned int stage = g_Shell.field_0xD;
         g_Shell.Set_currentMission(g_Shell.field_0xC);
         g_Shell.Set_currentStage(stage);
-        memcpy((void*)GMParam(params, 0), &mission, 4);
-        memcpy((void*)GMParam(params, 1), &stage, 4);
+        memcpy(ADDR_TO_PTR(void, GMParam(params, 0)), &mission, 4);
+        memcpy(ADDR_TO_PTR(void, GMParam(params, 1)), &stage, 4);
         result[0].value = 1;
         break;
     }
@@ -304,10 +304,10 @@ void GameMessage(unsigned long message, unsigned short, unsigned short, unsigned
         result[0].value = 1;
         break;
     case 0x64:
-        result[0].value = g_Shell.PassAudioSettingToIStudio((int*)GMParam(params, 0));
+        result[0].value = g_Shell.PassAudioSettingToIStudio(ADDR_TO_PTR(int, GMParam(params, 0)));
         break;
     case 0x5A:
-        g_Shell.SetupAudioSettings((int*)GMParam(params, 0));
+        g_Shell.SetupAudioSettings(ADDR_TO_PTR(int, GMParam(params, 0)));
         break;
     case 0x78:
         result[0].value = g_Shell.Get_currentDifficulty();
@@ -330,8 +330,8 @@ void GameMessage(unsigned long message, unsigned short, unsigned short, unsigned
         DebugMsg("Getting level to retry again\n");
         int mission = g_Shell.Get_currentMission();
         int stage = g_Shell.Get_currentStage();
-        memcpy((void*)GMParam(params, 0), &mission, 4);
-        memcpy((void*)GMParam(params, 1), &stage, 4);
+        memcpy(ADDR_TO_PTR(void, GMParam(params, 0)), &mission, 4);
+        memcpy(ADDR_TO_PTR(void, GMParam(params, 1)), &stage, 4);
         result[0].value = g_Shell.field_0xF != 0;
         break;
     }
@@ -363,10 +363,10 @@ void GameMessage(unsigned long message, unsigned short, unsigned short, unsigned
         g_Pause.field_0x94 = 0;
         break;
     case 0x50:
-        result[0].value = g_Shell.PassControllerOptionsSettingToIStudio((int*)GMParam(params, 0));
+        result[0].value = g_Shell.PassControllerOptionsSettingToIStudio(ADDR_TO_PTR(int, GMParam(params, 0)));
         break;
     case 0x46:
-        g_Shell.SetupControllerOptionsSettings((int*)GMParam(params, 0));
+        g_Shell.SetupControllerOptionsSettings(ADDR_TO_PTR(int, GMParam(params, 0)));
         break;
     case 0x18A:
         result[0].value = g_inputMgr.CDeviceManager::IsReady(GMParam(params, 0) - 1);
@@ -473,17 +473,17 @@ void GameMessage(unsigned long message, unsigned short, unsigned short, unsigned
         result[0].value = g_Shell.MemoryCardNumFilesFree(GMParam(params, 0) - 1);
         break;
     case 0x25B: {
-        UISString_t* name = (UISString_t*)GMParam(params, 0);
+        UISString_t* name = ADDR_TO_PTR(UISString_t, GMParam(params, 0));
         g_Shell.MemoryCardGetCorruptFileName(name->text, GMParam(params, 1) - 1);
         name->maxLength = strlen(name->text);
         break;
     }
     case 0x16F:
-        g_Shell.SetupPlayersAdvancedMultiPlayerSettings(GMParam(params, 0) - 1, (int*)GMParam(params, 1));
+        g_Shell.SetupPlayersAdvancedMultiPlayerSettings(GMParam(params, 0) - 1, ADDR_TO_PTR(int, GMParam(params, 1)));
         break;
     case 0x170:
         g_Shell.PassPlayersAdvancedMultiPlayerSettingToIStudio(GMParam(params, 0) - 1,
-                                                               (int*)GMParam(params, 1));
+                                                               ADDR_TO_PTR(int, GMParam(params, 1)));
         break;
     case 0x17E:
         g_Shell.PassPlayersMultiPlayerName(GMParam(params, 0) - 1, GMText(params, 1));
@@ -493,11 +493,11 @@ void GameMessage(unsigned long message, unsigned short, unsigned short, unsigned
         break;
     case 0x182:
         g_Shell.PassPlayersModelAndTeamColorSettingForMultiplayer(GMParam(params, 0) - 1,
-                                                                  (int*)GMParam(params, 1));
+                                                                  ADDR_TO_PTR(int, GMParam(params, 1)));
         break;
     case 0x184:
         g_Shell.SetupPlayersModelAndTeamColorSettingForMultiplayer(GMParam(params, 0) - 1,
-                                                                   (int*)GMParam(params, 1));
+                                                                   ADDR_TO_PTR(int, GMParam(params, 1)));
         break;
     case 0x186:
         result[0].value = g_Shell.PassPlayersMultiPlayerControllerValue(GMParam(params, 0) - 1);
@@ -512,10 +512,10 @@ void GameMessage(unsigned long message, unsigned short, unsigned short, unsigned
         break;
     }
     case 0x18C:
-        g_Shell.PassMultiPlayerLevelSettingsToIStudio((int*)GMParam(params, 0));
+        g_Shell.PassMultiPlayerLevelSettingsToIStudio(ADDR_TO_PTR(int, GMParam(params, 0)));
         break;
     case 0x18E:
-        g_Shell.SetupMultiPlayerLevelSettings((int*)GMParam(params, 0));
+        g_Shell.SetupMultiPlayerLevelSettings(ADDR_TO_PTR(int, GMParam(params, 0)));
         break;
     case 0x1A6:
         g_Shell.m_mpMission = GMParam(params, 0);
@@ -523,16 +523,16 @@ void GameMessage(unsigned long message, unsigned short, unsigned short, unsigned
         g_Shell.m_mpEnabled = 1;
         break;
     case 0x1A2:
-        g_Shell.Pass_ActiveWindowsToIStudio((int*)GMParam(params, 0));
+        g_Shell.Pass_ActiveWindowsToIStudio(ADDR_TO_PTR(int, GMParam(params, 0)));
         break;
     case 0x1A0: {
-        int* active = (int*)GMParam(params, 0);
+        int* active = ADDR_TO_PTR(int, GMParam(params, 0));
         g_Shell.SetActivePlayers(active);
         g_Shell.Save_ActiveWindowsFromIStudio(active);
         break;
     }
     case 0x192:
-        g_Shell.PassMP_StatsToIStudio(GMParam(params, 0) - 1, (int*)GMParam(params, 1));
+        g_Shell.PassMP_StatsToIStudio(GMParam(params, 0) - 1, ADDR_TO_PTR(int, GMParam(params, 1)));
         break;
     case 0x194:
         g_Shell.PassMP_PrefWeaponNameToIStudio(GMParam(params, 0) - 1, GMText(params, 1));

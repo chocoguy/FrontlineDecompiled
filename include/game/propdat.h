@@ -25,6 +25,8 @@ struct MOH_projectileGenerator_Struct;
 struct PBSPNodeOrLeaf;
 struct TriggerObject_struct;
 // A leaf of the property BSP tree (2D, x/y): the placed objects near it.
+typedef u16 PropPair[2];
+
 struct _PropBSPLeaf {
     /* 0x00 */ u32 m_numTriggers;
     /* 0x04 */ u16 m_numList24;
@@ -35,21 +37,23 @@ struct _PropBSPLeaf {
     /* 0x10 */ f32 m_maxX;
     /* 0x14 */ f32 m_minY;
     /* 0x18 */ f32 m_maxY;
-    /* 0x1C */ u16 (*m_list1C)[2];
+    /* 0x1C */ PTR32(PropPair) m_list1C;
     // Triggers and light volumes (bit 15) whose areas overlap the leaf;
     // proximity masks index this list.
-    /* 0x20 */ u16* m_triggers;
-    /* 0x24 */ u16* m_list24;
-    /* 0x28 */ u16* m_list28;
-    /* 0x2C */ u16* m_list2C;
+    /* 0x20 */ PTR32(u16) m_triggers;
+    /* 0x24 */ PTR32(u16) m_list24;
+    /* 0x28 */ PTR32(u16) m_list28;
+    /* 0x2C */ PTR32(u16) m_list2C;
 };
+FILE_SIZE_ASSERT(_PropBSPLeaf, 0x30);
 
 // A node: splits on y at even depths and x at odd ones.
 struct _PropBSPNode {
     /* 0x0 */ f32 m_split;
-    /* 0x4 */ void* m_children[2];  // below, above
+    /* 0x4 */ PTR32(void) m_children[2];  // below, above
     /* 0xC */ u8 m_isLeaf[2];
 };
+FILE_SIZE_ASSERT(_PropBSPNode, 0x10);
 
 struct BPDLightVolume;
 extern _PropBSPNode* g_pPBSPHead;  // 0x8034E8C8 (root)
@@ -68,26 +72,27 @@ struct BPDPolyPath;
 struct BPDPathFindingNode;
 struct BPDHeader {
     /* 0x00 */ u8 unk_0x0[0x10];
-    /* 0x10 */ BPDPolyPath* m_polyPaths;
+    /* 0x10 */ PTR32(BPDPolyPath) m_polyPaths;
     /* 0x14 */ int m_numPolyPaths;
-    /* 0x18 */ BPDPathFindingNode* m_pathNodes;
+    /* 0x18 */ PTR32(BPDPathFindingNode) m_pathNodes;
     /* 0x1C */ int m_numPathNodes;
-    /* 0x20 */ void** m_textures;  // particle textures (ShapeFiles)
+    /* 0x20 */ PTR32(PTR32(void)) m_textures;  // particle textures (ShapeFiles)
     /* 0x24 */ int m_numTextures;
-    /* 0x28 */ u8* m_properties;  // the placed objects' records, back to back
+    /* 0x28 */ PTR32(u8) m_properties;  // the placed objects' records, back to back
     /* 0x2C */ int m_numProperties;
-    /* 0x30 */ MOH_particle_Struct* m_particles;
+    /* 0x30 */ PTR32(MOH_particle_Struct) m_particles;
     /* 0x34 */ int m_numParticles;
-    /* 0x38 */ MOH_animatedLight_Struct* m_lights;
+    /* 0x38 */ PTR32(MOH_animatedLight_Struct) m_lights;
     /* 0x3C */ int m_numLights;
-    /* 0x40 */ BPDLightVolume* m_lightVolumes;
+    /* 0x40 */ PTR32(BPDLightVolume) m_lightVolumes;
     /* 0x44 */ int m_numLightVolumes;
     // Particle tweakers: {name, data} pairs.
-    /* 0x48 */ void** m_tweakers0;
+    /* 0x48 */ PTR32(PTR32(void)) m_tweakers0;
     /* 0x4C */ int m_numTweakers0;
-    /* 0x50 */ void** m_tweakers1;
+    /* 0x50 */ PTR32(PTR32(void)) m_tweakers1;
     /* 0x54 */ int m_numTweakers1;
 };
+FILE_SIZE_ASSERT(BPDHeader, 0x58);
 
 // A mounted machine gun and the waypoint a soldier mans it from (size 0xC).
 struct MGTriggerObject {

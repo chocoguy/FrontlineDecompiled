@@ -286,7 +286,7 @@ void CDMesh::Draw(CDrawContext& ctx, DMRenderObject_T* obj) {
 // textures (and in multiplayer the GI's) are left for the sleeve texture.
 void CDMesh::BindTextures(CTexturePack* pack, char*) {
     for (u32 i = 0; i < m_numParts; i++) {
-        char* name = m_textureNames[(u32)m_parts[i].m_texture];
+        char* name = m_textureNames[(u32)PTR_TO_ADDR(m_parts[i].m_texture)];
         bool body = stricmp(name, "mohf_body") == 0;
         bool head = stricmp(name, "mohf_head") == 0;
         bool gi = false;
@@ -350,14 +350,35 @@ void CDMesh::BindSkeleton(CharSkel_t* skel) {
 // under the world's or the weapon's bin.
 void CDMesh::Init(bool weapon) {
     CDMeshPart* prev = NULL;
+#ifdef FRONTLINE_NATIVE
+    DMeshFromBigEndian(this);
+#endif
 
     m_flags |= weapon ? DMESH_WEAPON : 0;
     if (m_flags & DMESH_INIT) {
         return;
     }
-    int base = (int)this;
+    int base = (int)PTR_TO_ADDR(this);
     offsetPtr(m_clusters, base);
     offsetPtr(m_parts, base);
+#ifdef FRONTLINE_NATIVE
+    // A CPartBin doesn't fit in the file's 0x38-byte part record natively, so
+    // the parts are separate objects built from the records.
+    {
+        const DMeshPartRecord* records = (const DMeshPartRecord*)m_parts.get();
+        CDMeshPart* parts = (CDMeshPart*)operator new(m_numParts * sizeof(CDMeshPart));
+        for (u32 i = 0; i < m_numParts; i++) {
+            CDMeshPart* part = new (&parts[i]) CPartBin;
+            part->unk_0x20 = records[i].unk_0x20;
+            part->m_flags = records[i].m_flags;
+            part->m_texture = ADDR_TO_PTR(CTexture, records[i].m_texture);  // an index until BindTextures
+            part->m_numLists = records[i].m_numLists;
+            part->m_lists = records[i].m_lists.addr() != 0 ? ADDR_TO_PTR(CDMeshDisplayList, records[i].m_lists.addr() + base) : NULL;
+            part->field_0x34 = records[i].field_0x34.addr() != 0 ? ADDR_TO_PTR(void, records[i].field_0x34.addr() + base) : NULL;
+        }
+        m_parts = parts;
+    }
+#endif
     offsetPtr(m_textureNames, base);
     offsetPtr(m_nodes, base);
     offsetPtr(m_variants, base);
@@ -375,9 +396,13 @@ void CDMesh::Init(bool weapon) {
     }
 
     for (u32 i = 0; i < m_numParts; i++) {
+#ifdef FRONTLINE_NATIVE
+        CDMeshPart* part = &m_parts[i];  // built above
+#else
         CDMeshPart* part = new (&m_parts[i]) CPartBin;
         offsetPtr(part->field_0x34, base);
         offsetPtr(part->m_lists, base);
+#endif
         for (u32 j = 0; j < part->m_numLists; j++) {
             offsetPtr(part->m_lists[j].data, base);
         }

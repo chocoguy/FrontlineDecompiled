@@ -67,8 +67,9 @@ struct MOH_particle_Struct {
     /* 0xE0 */ f32 particleLifetime;  // seconds
     /* 0xE4 */ f32 rotationMin;  // turns over a particle's life
     /* 0xE8 */ f32 rotationMax;
-    /* 0xEC */ ShapeFile* texture;
+    /* 0xEC */ PTR32(ShapeFile) texture;
 };
+FILE_SIZE_ASSERT(MOH_particle_Struct, 0xF0);
 
 // A texture shared by particle systems. size 0x64; vtable 0x801849F0
 class CParticleSystemTextureBin : public CRenderBin {

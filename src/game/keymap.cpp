@@ -110,3 +110,25 @@ u32 g_config_keymap[260] = {  // at 0x801858BC
     0x00000000, 0x00000000, 0x00000000, 0x00000000
 };
 // static ? gap_07_80185CCC_data;                      /* unable to generate initializer: unknown type */  (alignment padding)
+
+#ifdef FRONTLINE_NATIVE
+// These tables are the console's memory as words, but the game reads them as
+// structs with 16- and 8-bit fields (CInputEvent, KEYMAPENTRY), so natively
+// the fields are rearranged once at startup.
+static struct NativeKeymapTables {
+    NativeKeymapTables() {
+        // CInputEvent: u16 flags, u8 dead zone, pad; then two words.
+        for (int i = 0; i < 567; i += 3) {
+            u32 w = masterEventTable[i];
+            masterEventTable[i] = (w >> 16) | ((w >> 8) & 0xFF) << 16 | (w & 0xFF) << 24;
+        }
+        // Four keymaps of 0x104 bytes: an id word, then u16 event/source pairs.
+        for (int i = 0; i < 260; i++) {
+            if (i % 65 != 0) {
+                u32 w = g_config_keymap[i];
+                g_config_keymap[i] = w >> 16 | w << 16;
+            }
+        }
+    }
+} s_nativeKeymapTables;
+#endif

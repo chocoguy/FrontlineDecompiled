@@ -8,6 +8,9 @@
 #include "game/location_collision.h"
 #include "game/skeleton.h"
 #include "game/dmesh.h"
+#ifdef FRONTLINE_NATIVE
+#include "game/AISoldierDoodad.h"
+#endif
 #include "game/staticmesh.h"
 #include "game/texpack.h"
 #include "game/sprite.h"
@@ -32,13 +35,16 @@
 // The value of field `i` of a level resource.
 #define RES_FIELD(res, i) ((res)->fields[i].value)
 #define RES_FLOAT(res, i) (*(f32*)&(res)->fields[i].value)
-#define RES_STRING(res, i) ((char*)(res)->fields[i].value)
+#define RES_STRING(res, i) ADDR_TO_PTR(char, (res)->fields[i].value)
 
 // Static object meshes (for the random helmets cheat).
 static int g_staticObjCount;
 
 // A mesh file this executable can use.
 static inline bool MeshFormatOK(CDMesh* mesh) {
+#ifdef FRONTLINE_NATIVE
+    DMeshFromBigEndian(mesh);  // m_format is 16-bit; Init's swap comes later (a no-op then)
+#endif
     return mesh->m_version == 6 && mesh->field_0x5 == 1 && mesh->m_format == 3;
 }
 
@@ -49,6 +55,18 @@ static inline bool IsMeshObject(LevelFileContentsStruct_* res) {
 }
 
 void CAnimObjectFactory::SetLargestObjectSize(int size) {
+#ifdef FRONTLINE_NATIVE
+    // `size` is the console's; natively the objects are bigger. A slot holds
+    // any of the classes AllocateObject builds (a weapon with its sprites).
+    // Soldiers also hold their AI filter and AI object (CAISoldierDoodad::Init).
+    const int largest[] = {(int)sizeof(CAnimObject), NativeSoldierSlotSize(), (int)sizeof(CAnimatedPlayer),
+                           (int)(sizeof(CPlayerWeaponObject) + 3 * sizeof(CSprite))};
+    for (int i = 0; i < 4; i++) {
+        if (size < largest[i]) {
+            size = largest[i];
+        }
+    }
+#endif
     int rem = size & 0xF;
     if (rem != 0) {
         size += 0x10 - rem;
@@ -339,7 +357,7 @@ void CAnimObjectFactory::InitAnimObjectFromLevelContentsStruct(LevelFileContents
     if (m_defs[index].m_pMesh != NULL) {
         for (u32 i = 0; i < m_defs[index].m_pMesh->m_numParts; i++) {
             CDMesh* body = m_defs[index].m_pMesh;
-            u32 tex = (u32)body->m_parts[i].m_texture;
+            u32 tex = (u32)PTR_TO_ADDR(body->m_parts[i].m_texture);
             if (tex < body->m_numTextureNames && stricmp(body->m_textureNames[tex], "mohf_body") == 0) {
                 m_defs[index].m_bodyPart = i;
                 i = m_defs[index].m_pMesh->m_numParts;

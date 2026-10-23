@@ -76,7 +76,8 @@ void DMRenderSet2dReject(DMRenderObject_T* obj, unsigned long reject) {
 }
 
 void DMRenderResetState(DMRenderObject_T* obj) {
-    memset(&obj->m_viewProj, 0, 0x110);
+    memset(&obj->m_viewProj, 0,
+           GC_SIZE(0x110, offsetof(DMRenderObject_T, m_numParts) - offsetof(DMRenderObject_T, m_viewProj)));
     obj->m_scale[0] = 1.0f;
     obj->m_scale[1] = 1.0f;
     obj->m_scale[2] = 1.0f;

@@ -45,7 +45,7 @@ static void* _UISFindHintPC(UISControl_t* control, unsigned long hint) {
     for (u32 i = 0; i < control->numEvents; i++) {
         UISEventEntry_t* e = &control->events[i];
         if ((e->flags & UISEVENT_HINT) && e->id == (u16)hint) {
-            return (void*)e->pc;
+            return ADDR_TO_PTR(void, e->pc);
         }
     }
     return NULL;
@@ -77,7 +77,7 @@ signed char UISExecuteFnc(UISInfo_t* info, UISScreen_t* screen, UISControlInfo_t
         stack->sp->value = params2[i].value;
         stack->sp++;
     }
-    stack->sp->value = (u32)control;
+    stack->sp->value = (u32)PTR_TO_ADDR(control);
     stack->sp++;
     stack->sp->value = 0;
     stack->sp++;
@@ -190,9 +190,9 @@ void UISStringFormat(UISScrData_t*, UISString_t* dst, UISString_t* fmt, unsigned
                 scanning = 0;
                 break;
             case 's': {
-                UISString_t* s = (UISString_t*)params[p].value;
+                UISString_t* s = ADDR_TO_PTR(UISString_t, params[p].value);
                 if (s != NULL) {
-                    args[n] = (u32)s->text;
+                    args[n] = (u32)PTR_TO_ADDR(s->text);
                 }
                 scanning = 0;
                 p++;

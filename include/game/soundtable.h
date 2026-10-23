@@ -18,11 +18,21 @@ public:
     struct SSoundParms {
         /* 0x0 */ s8 m_variantMin;  // event word 2 is random in [min, max]
         /* 0x1 */ s8 m_variantMax;
+#ifdef FRONTLINE_NATIVE
+        // clang allocates bitfields from the low bit, CodeWarrior from the
+        // high bit: declared in reverse so the file's bits line up.
+        /* 0x2 */ s8 m_category : 4;  // event word 1
+        /* 0x2 */ s8 m_positional : 1;  // placed relative to the listener
+        /* 0x2 */ s8 m_scheduled : 1;  // tracked by g_SoundSchedule
+        /* 0x2 */ s8 m_flag40 : 1;
+        /* 0x2 */ s8 m_altEvent : 1;  // AEMS event 0xE instead of 7
+#else
         /* 0x2 */ s8 m_altEvent : 1;  // AEMS event 0xE instead of 7
         /* 0x2 */ s8 m_flag40 : 1;
         /* 0x2 */ s8 m_scheduled : 1;  // tracked by g_SoundSchedule
         /* 0x2 */ s8 m_positional : 1;  // placed relative to the listener
         /* 0x2 */ s8 m_category : 4;  // event word 1
+#endif
         /* 0x4 */ s16 m_randomMin;  // event word 3 is random in [min, max]
         /* 0x6 */ s16 m_randomMax;
         /* 0x8 */ s16 m_volume;
@@ -47,15 +57,15 @@ public:
         /* 0x4 */ u32 unk_0x4[3];
         /* 0x10 */ s32 m_numKeys;
         /* 0x14 */ s32 m_numParms;
-        /* 0x18 */ SKey* m_keys;
-        /* 0x1C */ SSoundParms* m_parms;
+        /* 0x18 */ PTR32(SKey) m_keys;
+        /* 0x1C */ PTR32(SSoundParms) m_parms;
     };
     // Header of the animation sound file.
     struct SAnimFile {
         /* 0x0 */ u32 m_magic;
         /* 0x4 */ u32 unk_0x4[3];
         /* 0x10 */ s32 m_count;
-        /* 0x14 */ SAnimEntry* m_entries;
+        /* 0x14 */ PTR32(SAnimEntry) m_entries;
     };
     /* 0x0 */ SEventFile* m_events;
     /* 0x4 */ SAnimFile* m_anims;

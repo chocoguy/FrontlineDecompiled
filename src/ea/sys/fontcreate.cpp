@@ -2,6 +2,9 @@
 
 // A font is its data: the driver just gets to set it up.
 extern "C" FONT* FONT_create(const char* data) {
+#ifdef FRONTLINE_NATIVE
+    FontFromBigEndian((FONT*)data);
+#endif
     if (FONTcurrentdriver->createFont != NULL) {
         FONTcurrentdriver->createFont((FONT*)data);
     }

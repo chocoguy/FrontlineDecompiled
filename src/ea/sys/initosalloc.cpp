@@ -7,8 +7,8 @@ static int iGC_OsMemoryInitized;
 
 u32 iGC_GetMaxOsMemory() {
     if (iGC_OsMemoryInitized == 0) {
-        u32 lo = (u32)OSGetArenaLo();
-        u32 hi = (u32)OSGetArenaHi();
+        u32 lo = (u32)PTR_TO_ADDR(OSGetArenaLo());
+        u32 hi = (u32)PTR_TO_ADDR(OSGetArenaHi());
         return ((hi & ~0x1F) - ((lo + 0x1F) & ~0x1F)) - iGC_OsMemory;
     }
     return 0;
@@ -24,8 +24,8 @@ void iGC_InitMem() {
         hi = OSGetArenaHi();
         lo = OSInitAlloc(lo, hi, 1);
         OSSetArenaLo(lo);
-        hi = (void*)((u32)hi & ~0x1F);
-        OSSetCurrentHeap(OSCreateHeap((void*)(((u32)lo + 0x1F) & ~0x1F), hi));
+        hi = (void*)((uptr)(hi) & ~0x1F);
+        OSSetCurrentHeap(OSCreateHeap((void*)(((uptr)(lo) + 0x1F) & ~0x1F), hi));
         OSSetArenaLo(hi);
     }
 }

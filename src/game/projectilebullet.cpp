@@ -291,15 +291,17 @@ int CProjectileBullet::Penetrate(const CCollision& clsn) {
     CVector3 next(pos.x + step.x, pos.y + step.y, pos.z + step.z);
     ((CMatrix*)&m_rightward)->SetPos(next);
     m_flags &= ~FLAG_HIT;
+    END_RETURN_NOTHING
 }
 
 // Dies when its time runs out or it hit something.
 int CProjectileBullet::CommitUpdate() {
     if (field_0x90 <= 0.0f || (m_flags & FLAG_HIT)) {
         MarkForDestruction(1);
-        return;
+        RETURN_NOTHING;
     }
     m_basePos = m_position;
+    END_RETURN_NOTHING
 }
 
 // Moves speed * dt along its forward axis, sweeping a fiber from the old
@@ -319,6 +321,7 @@ int CProjectileBullet::AttemptUpdate(float dt) {
     m_pMinY->m_value = min.y - CONTACT_EPSILON;
     m_pMaxX->m_value = CONTACT_EPSILON + max.x;
     m_pMaxY->m_value = CONTACT_EPSILON + max.y;
+    END_RETURN_NOTHING
 }
 
 int CProjectileBullet::BeginUpdate(float dt) {
@@ -331,6 +334,7 @@ int CProjectileBullet::BeginUpdate(float dt) {
             field_0x90 = 0.0f;
         }
     }
+    END_RETURN_NOTHING
 }
 
 void CProjectileBullet::OnCollision(const CCollision& clsn) {
@@ -458,7 +462,7 @@ void CProjectileBullet::Init(EProjectileBulletTypes type, ProjectileBulletProper
     if (!g_BulletBin.m_loaded) {
         g_BulletBin.m_loaded = true;
         LevelFileContentsStruct_* res = TLT_FindNextResourceByType((TLTResourceID)0xD, NULL);
-        g_BulletBin.m_texture.Set((ShapeFile*)TLT_LoadFileFromLevelBigFile((const char*)res->fields[0].value, NULL), false);
+        g_BulletBin.m_texture.Set((ShapeFile*)TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(const char, res->fields[0].value), NULL), false);
     }
 }
 

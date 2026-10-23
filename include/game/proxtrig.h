@@ -18,9 +18,10 @@ struct _PropBSPLeaf;
 struct _ProximityData {
     /* 0x0 */ u32 m_oldMask;
     /* 0x4 */ u32 m_newMask;
-    /* 0x8 */ const _PropBSPLeaf* m_oldLeaf;
-    /* 0xC */ const _PropBSPLeaf* m_newLeaf;
+    /* 0x8 */ PTR32(const _PropBSPLeaf) m_oldLeaf;
+    /* 0xC */ PTR32(const _PropBSPLeaf) m_newLeaf;
 };
+FILE_SIZE_ASSERT(_ProximityData, 0x10);  // kept in the objects' u32 m_proximity[4]
 
 // Free functions
 bool IsPointInTrigger(const CVector3&, const TriggerObject_struct*);  // 0x80044D3C

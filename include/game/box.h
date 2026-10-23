@@ -76,4 +76,23 @@ float BoxLineSqrDistance(const CLine3& line, const CVolBox& box, float* t, float
 // coordinates.
 float BoxPointSqrDistance(const CVector3& point, const CVolBox& box, float* b0, float* b1, float* b2);  // 0x800C11D8
 
+#ifdef FRONTLINE_NATIVE
+#include <string.h>
+// A box stored with the GameCube layout, in file data (location collision
+// boxes, a static mesh's root node): the vtable pointer slot at 0, the half
+// sizes at 4, the axes at 0x10, 0x20, 0x30 and the center at 0x40. Natively a
+// CVolBox's fields sit after an 8-byte vtable pointer, so code that viewed
+// those bytes as a CVolBox gets a copy instead.
+inline CVolBox GCVolBox(const void* gc) {
+    const u8* p = (const u8*)gc;
+    CVolBox box;
+    memcpy(box.m_halfSize, p + 0x04, 0xC);
+    memcpy(&box.m_axisX, p + 0x10, 0xC);
+    memcpy(&box.m_axisY, p + 0x20, 0xC);
+    memcpy(&box.m_axisZ, p + 0x30, 0xC);
+    memcpy(&box.m_center, p + 0x40, 0xC);
+    return box;
+}
+#endif
+
 #endif

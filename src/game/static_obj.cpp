@@ -245,6 +245,7 @@ int CStaticObject::Init() {
     m_collisionDamage = 0;
     m_turnSlowdown = 0.5f;
     m_pathNoTurn = 0;
+    END_RETURN_NOTHING
 }
 
 // Steps the mesh's frame animation.
@@ -362,7 +363,7 @@ int CStaticObject::BeginUpdate(float dt) {
     AnimUpdate(dt);
     if (IsPathMoving()) {
         BeginPathMotionUpdate(dt);
-        return;
+        RETURN_NOTHING;
     }
     if (IsScriptMoving()) {
         m_lastPos = *(const CVector3*)m_tm.m[3];
@@ -390,11 +391,11 @@ int CStaticObject::BeginUpdate(float dt) {
             m_scaleRate = 0.0f;
         }
         m_scriptMotionBlocked = 0;
-        return;
+        RETURN_NOTHING;
     }
     if (m_motionPlaying) {
         BeginAnimMotionUpdate(dt);
-        return;
+        RETURN_NOTHING;
     }
     if (m_pWorldVolume != NULL) {
         CVector3 min;
@@ -412,6 +413,7 @@ int CStaticObject::BeginUpdate(float dt) {
         m_pMaxX->m_value = CONTACT_EPSILON + pos.x;
         m_pMaxY->m_value = CONTACT_EPSILON + pos.y;
     }
+    END_RETURN_NOTHING
 }
 
 // Script motions: the translation is along the object's own axes.
@@ -570,7 +572,7 @@ void CStaticObject::AttemptPathMotionUpdate(float dt) {
 int CStaticObject::AttemptUpdate(float dt) {
     if (IsPathMoving()) {
         AttemptPathMotionUpdate(dt);
-        return;
+        RETURN_NOTHING;
     }
     if (IsScriptMoving()) {
         if (!m_scriptMotionBlocked) {
@@ -579,6 +581,7 @@ int CStaticObject::AttemptUpdate(float dt) {
     } else if (m_motionPlaying) {
         AttemptAnimMotionUpdate(dt);
     }
+    END_RETURN_NOTHING
 }
 
 void CStaticObject::CommitScriptMotionUpdate() {
@@ -641,6 +644,7 @@ int CStaticObject::CommitUpdate() {
         tm.PreTranslate(m_lightOffset);
         m_pLight->SetTMLocalToWorld(tm);
     }
+    END_RETURN_NOTHING
 }
 
 void CStaticObject::Draw(CDrawContext& ctx) {

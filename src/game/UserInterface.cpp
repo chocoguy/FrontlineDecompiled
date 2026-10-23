@@ -319,7 +319,7 @@ void InitTimeStampStuff() {
     charMarkerForLandmarkString = 0;
     ClearStampText();
     LevelFileContentsStruct_* level = TLT_FindNextResourceByType((TLTResourceID)0xB, NULL);
-    void* font = TLT_LoadFileFromLevelBigFile((char*)level->fields[2].value, NULL);
+    void* font = TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(char, level->fields[2].value), NULL);
     timestampFont = new CFont((const char*)font, (ERenderPriority)0x6F);
     timestampFont->SetColor(CColor(0x80, 0x80, 0x80, 0x80));
     timestampFont->SetScale(1.0f, 1.0f);
@@ -443,7 +443,7 @@ void UserInterface::Update(float dt) {
     int health = ScriptHealth(player);
     int reserve = player->GetCurrentWeaponReserveAmoCount();
     int clip = player->GetCurrentWeaponClipAmoCount();
-    if ((u32)player->GetCurrentWeapon() != m_lastWeapon) {
+    if ((u32)PTR_TO_ADDR(player->GetCurrentWeapon()) != m_lastWeapon) {
         m_ammoTime = 4.5f;
         m_nameTime = 4.5f;
     }
@@ -510,7 +510,7 @@ void UserInterface::Update(float dt) {
     m_lastHealthShown = health;
     m_lastReserve = player->GetCurrentWeaponReserveAmoCount();
     m_lastClip = player->GetCurrentWeaponClipAmoCount();
-    m_lastWeapon = (u32)player->GetCurrentWeapon();
+    m_lastWeapon = (u32)PTR_TO_ADDR(player->GetCurrentWeapon());
 }
 
 // The red markers around the compass for recent hits (smaller with three
@@ -1232,7 +1232,7 @@ void UserInterface::Init() {
     }
     ammoSprite = NULL;
     LevelFileContentsStruct_* level = TLT_FindNextResourceByType((TLTResourceID)0xB, NULL);
-    void* font = TLT_LoadFileFromLevelBigFile((char*)level->fields[1].value, NULL);
+    void* font = TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(char, level->fields[1].value), NULL);
     if (bulletText == NULL) {
         bulletText = new CFont((const char*)font, (ERenderPriority)0x6F);
     }
@@ -1243,7 +1243,7 @@ void UserInterface::Init() {
         bulletText->SetDepth(screen->GetDepthBufferMax());
     }
     if (g_bInMultiplayerMode && smallMPFont == NULL) {
-        void* mpFont = TLT_LoadFileFromLevelBigFile((char*)level->fields[3].value, NULL);
+        void* mpFont = TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(char, level->fields[3].value), NULL);
         smallMPFont = new CFont((const char*)mpFont, (ERenderPriority)0x6F);
         smallMPFont->SetColor(CColor(0x80, 0x80, 0x80, 0x80));
     }

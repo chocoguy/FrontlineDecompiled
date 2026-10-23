@@ -64,6 +64,9 @@ u32 g_anim_copy_memory_sz;
 u32 g_anim_copy_memory_cur;
 
 static inline void Swap16(void* p) {
+#ifdef FRONTLINE_NATIVE
+    return;  // little-endian data on a little-endian CPU: nothing to swap
+#endif
     u8* b = (u8*)p;
     u8 t = b[0];
     b[0] = b[1];
@@ -71,6 +74,9 @@ static inline void Swap16(void* p) {
 }
 
 static inline void Swap32(void* p) {
+#ifdef FRONTLINE_NATIVE
+    return;  // little-endian data on a little-endian CPU: nothing to swap
+#endif
     u8* b = (u8*)p;
     u8 b0 = b[0];
     u8 b3 = b[3];
@@ -154,9 +160,9 @@ AnimFileFormat_t* CopyAnimFileFormatStructureToDynMem(AnimFileFormat_t* file) {
     copy->objectType = file->objectType;
     copy->fileNum = file->fileNum;
     copy->numFrames = file->numFrames;
-    copy->states = (AnimEmotStateList_t*)CopyStateList(file);
-    copy->anims = (AnimEmotAnimList_t*)CopyAnimList(file);
-    u8** frames = (u8**)CopyAlloc((file->numFrames + 1) * sizeof(u8*));
+    copy->states = ADDR_TO_PTR(AnimEmotStateList_t, CopyStateList(file));
+    copy->anims = ADDR_TO_PTR(AnimEmotAnimList_t, CopyAnimList(file));
+    PTR32(u8)* frames = (PTR32(u8)*)CopyAlloc((file->numFrames + 1) * sizeof(PTR32(u8)));
     for (int i = 0; i < file->numFrames; i++) {
         frames[i] = file->frames[i];
     }
@@ -175,9 +181,9 @@ int CopyAnimList(AnimFileFormat_t* file) {
     AnimEmotAnimList_t* dst = (AnimEmotAnimList_t*)CopyAlloc((file->anims->count - 1) * 4 + 8);
     dst->count = file->anims->count;
     for (u32 i = 0; i < dst->count; i++) {
-        dst->anims[i] = (AnimEmotAnimation_t*)CopyEmotAnimation(file->anims->anims[i], file, i);
+        dst->anims[i] = ADDR_TO_PTR(AnimEmotAnimation_t, CopyEmotAnimation(file->anims->anims[i], file, i));
     }
-    return (int)dst;
+    return (int)PTR_TO_ADDR(dst);
 }
 
 int CopyEmotAnimation(AnimEmotAnimation_t* anim, AnimFileFormat_t* file, int index) {
@@ -191,7 +197,7 @@ int CopyEmotAnimation(AnimEmotAnimation_t* anim, AnimFileFormat_t* file, int ind
     for (int i = 0; i < n; i++) {
         dst->program[i] = anim->program[i];
     }
-    return (int)dst;
+    return (int)PTR_TO_ADDR(dst);
 }
 
 void* CopyCompressedData(unsigned char* data) {
@@ -234,7 +240,7 @@ int CopyStateList(AnimFileFormat_t* file) {
     for (int i = 0; i < (int)file->states->count; i++) {
         CopyStateDef(&dst->states[i], &file->states->states[i]);
     }
-    return (int)dst;
+    return (int)PTR_TO_ADDR(dst);
 }
 
 void CopyStateDef(AnimEmotStateDef_t* dst, AnimEmotStateDef_t* src) {
@@ -272,10 +278,10 @@ void CopyStateDef(AnimEmotStateDef_t* dst, AnimEmotStateDef_t* src) {
 // Loads (a 32-byte aligned stretch of) one frame from ARAM into the frame
 // cache and returns it.
 void* AnimFileGetFrame(AnimFileFormat_t* file, u16 frame) {
-    u32 start = (u32)file->frames[frame];
+    u32 start = (u32)PTR_TO_ADDR(file->frames[frame]);
     u32 aligned = start & ~0x1F;
     u32 offset = start - aligned;
-    s32 size = ((u32)file->frames[frame + 1] - start + offset + 0x1F) & ~0x1F;
+    s32 size = ((u32)PTR_TO_ADDR(file->frames[frame + 1]) - start + offset + 0x1F) & ~0x1F;
     if (size > FRAME_CACHE_SIZE - g_frame_cache_used) {
         g_frame_cache_used = 0;
     }
@@ -284,8 +290,9 @@ void* AnimFileGetFrame(AnimFileFormat_t* file, u16 frame) {
     DCFlushRange(dst, size);
     g_bDMAToMRAM = 1;
     ARQPostRequest(&g_fromARAM_request, 0, ARQ_TYPE_ARAM_TO_MRAM, ARQ_PRIORITY_HIGH, aligned,
-                   (u32)dst, size, DMAFromARAMCallback);
+                   (u32)PTR_TO_ADDR(dst), size, DMAFromARAMCallback);
     while (g_bDMAToMRAM != 0) {
+        SPIN_WAIT();
     }
     g_frame_cache_used += size;
     return dst + offset;
@@ -294,7 +301,7 @@ void* AnimFileGetFrame(AnimFileFormat_t* file, u16 frame) {
 // Moves the frame data [first, end) to ARAM; the copy's frame table then
 // holds ARAM addresses.
 void UploadFramesToARAM(AnimFileFormat_t* copy, unsigned char* first, unsigned char* last) {
-    u8* aligned = (u8*)((u32)first & ~0x1F);
+    u8* aligned = (u8*)((uptr)first & ~0x1F);
     u32 dataSize = last - first;
     u32 offset = first - aligned;
     u32 size = (dataSize + offset + 0x1F) & ~0x1F;
@@ -302,25 +309,25 @@ void UploadFramesToARAM(AnimFileFormat_t* copy, unsigned char* first, unsigned c
     u32 startTick = OSGetTick();
     DCFlushRange(aligned, size);
     g_bDMAToARAM = 1;
-    ARQPostRequest(&g_toARAM_request, 0, ARQ_TYPE_MRAM_TO_ARAM, ARQ_PRIORITY_HIGH, (u32)aligned,
+    ARQPostRequest(&g_toARAM_request, 0, ARQ_TYPE_MRAM_TO_ARAM, ARQ_PRIORITY_HIGH, (u32)PTR_TO_ADDR(aligned),
                    aram, size, DMAToARAMCallback);
     while (g_bDMAToARAM != 0) {
         VIWaitForRetrace();
     }
     DebugMsg("Transfered %d bytes of animation frame data to ARAM in %f seconds\n", size,
-             (float)(end - startTick) / (float)(*(u32*)0x800000F8 >> 2));
+             (float)(end - startTick) / (float)(OS_BUS_CLOCK >> 2));
     for (int i = 0; i < copy->numFrames; i++) {
-        copy->frames[i] = (u8*)(aram + (copy->frames[i] - first) + offset);
+        copy->frames[i] = ADDR_TO_PTR(u8, aram + (copy->frames[i] - first) + offset);
     }
-    copy->frames[copy->numFrames] = (u8*)(aram + (dataSize + offset));
+    copy->frames[copy->numFrames] = ADDR_TO_PTR(u8, (aram + (dataSize + offset)));
 }
 
-void DMAToARAMCallback(unsigned long) {
+void DMAToARAMCallback(u32) {
     end = OSGetTick();
     g_bDMAToARAM = 0;
 }
 
-void DMAFromARAMCallback(unsigned long) {
+void DMAFromARAMCallback(u32) {
     end = OSGetTick();
     g_bDMAToMRAM = 0;
 }
@@ -407,7 +414,11 @@ u16 AnimFileGetFileNum(AnimFileFormat_t* file) { return file->fileNum; }
 
 u16 AnimFileGetObjectType(AnimFileFormat_t* file) { return file->objectType; }
 
+#ifdef FRONTLINE_NATIVE
+#define RELOCATE(base, p) NativeRelocate((p), PTR_TO_ADDR(base))
+#else
 #define RELOCATE(base, p) (*(u32*)&(p) += (u32)(base))
+#endif
 
 // Byte-swaps a loaded .emt file and turns its offsets into pointers.
 void AnimFileRelocate(void* data, const char* name) {

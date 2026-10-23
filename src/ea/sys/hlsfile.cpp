@@ -57,7 +57,7 @@ static int loadfileatom(int priority, void* data) {
         if (buffer != NULL) {
             FILESYS_readsync(file, 0, buffer, size, priority - 1);
             FILESYS_closesync(file, priority - 1);
-            return (int)buffer;
+            return (int)PTR_TO_ADDR(buffer);
         }
         FILESYS_closesync(file, priority - 1);
         return 0;
@@ -70,7 +70,7 @@ extern "C" void* FILE_loadz(const char* name, int memflags) {
     args.name = name;
     args.memflags = memflags;
     args.unk_0xC = 0;
-    return (void*)FILESYS_atomic(loadfileatom, 0, sync_priority, &args);
+    return ADDR_TO_PTR(void, FILESYS_atomic(loadfileatom, 0, sync_priority, &args));
 }
 
 static int loadfilesizeatom(int priority, void* data) {
@@ -85,7 +85,7 @@ static int loadfilesizeatom(int priority, void* data) {
             FILESYS_readsync(file, 0, buffer, size, priority - 1);
             FILESYS_closesync(file, priority - 1);
             args->value = size;
-            return (int)buffer;
+            return (int)PTR_TO_ADDR(buffer);
         }
         FILESYS_closesync(file, priority - 1);
         return 0;
@@ -99,7 +99,7 @@ extern "C" void* FILE_loadsize(const char* name, int* size, int memflags) {
     args.name = name;
     args.memflags = memflags;
     args.unk_0xC = 1;
-    buffer = (void*)FILESYS_atomic(loadfilesizeatom, 0, sync_priority, &args);
+    buffer = ADDR_TO_PTR(void, FILESYS_atomic(loadfilesizeatom, 0, sync_priority, &args));
     if (size != NULL) {
         *size = args.value;
     }
@@ -142,7 +142,7 @@ static int loadbigheaderatom(int priority, void* data) {
         FILESYS_readsync(file, 0xA90, bigger + 0xA90, size - 0xA90, priority - 1);
     }
     FILESYS_closesync(file, priority - 1);
-    return (int)header;
+    return (int)PTR_TO_ADDR(header);
 }
 
 extern "C" void* FILE_loadbigheader(const char* name, int memflags) {
@@ -150,5 +150,5 @@ extern "C" void* FILE_loadbigheader(const char* name, int memflags) {
     args.name = name;
     args.value = memflags;
     args.unk_0xC = 1;
-    return (void*)FILESYS_atomic(loadbigheaderatom, 0, sync_priority, &args);
+    return ADDR_TO_PTR(void, FILESYS_atomic(loadbigheaderatom, 0, sync_priority, &args));
 }

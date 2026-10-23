@@ -6,7 +6,7 @@ void SNDMEMI_init(void* mem, int size) {
     sndgs.mem->table = (SNDMEMENTRY*)((u8*)mem + (size - 8));
     sndgs.mem->base = (u8*)mem + 0x18;
     sndgs.mem->base += 0xF;
-    sndgs.mem->base = (u8*)((u32)sndgs.mem->base & ~0xF);
+    sndgs.mem->base = (u8*)((uptr)((u8*)sndgs.mem->base) & ~0xF);
     sndgs.mem->limit = size - 0x2F;
     sndgs.mem->lowwater = size - 0xF;
 }

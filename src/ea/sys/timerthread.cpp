@@ -32,11 +32,11 @@ void ttMsg(TIMERMSG msg) {
 
 static void* TimerThreadFunc(void*) {
     OSMessage msg = (OSMessage)TIMERMSG_TICK;
-    while ((int)msg != TIMERMSG_QUIT) {
+    while ((sptr)(msg) != TIMERMSG_QUIT) {
         OSReceiveMessage(&TimerThreadMsgQ, &msg, OS_MESSAGE_BLOCK);
-        if ((int)msg == TIMERMSG_TICK) {
+        if ((sptr)(msg) == TIMERMSG_TICK) {
             ttDoTimerMsg();
-        } else if ((int)msg == TIMERMSG_VBLANK) {
+        } else if ((sptr)(msg) == TIMERMSG_VBLANK) {
             ttDoVTimerMsg();
         }
     }

@@ -75,6 +75,7 @@ int CHierObject::Init(CHierObject* root, int index, int parentIndex, int attachP
     m_colliders.reserve(m_colliderBuffer, 0x20);
     m_damageClasses[0].m_min = -1;
     m_damageClasses[1].m_min = -1;
+    END_RETURN_NOTHING
 }
 
 void CHierObject::SetRotation(CQuaternion& rot) {
@@ -141,6 +142,7 @@ int CHierObject::BeginUpdate(float dt) {
     if (!m_noUpdate) {
         DoBeginUpdate(dt, true);
     }
+    END_RETURN_NOTHING
 }
 
 // Rebuilds the world matrix from the local rotation and position.
@@ -211,6 +213,7 @@ int CHierObject::AttemptUpdate(float dt) {
         m_csg.GetExtents(min, max);
         SetExtents(min, max);
     }
+    END_RETURN_NOTHING
 }
 
 int CHierObject::CommitUpdate() {
@@ -231,12 +234,13 @@ int CHierObject::CommitUpdate() {
         child->CommitUpdate();
     }
     m_collided = 0;
+    END_RETURN_NOTHING
 }
 
 // Parts only translate and rotate; the events carry the part index.
 void CHierObject::BeginScriptMotionUpdate(float) {
     if (m_translating && m_translateTime <= 0.0f) {
-        TriggerScriptEvent(m_translateEvent, (void*)m_index, false);
+        TriggerScriptEvent(m_translateEvent, ADDR_TO_PTR(void, m_index), false);
         m_translateTime = 0.0f;
         m_translating = 0;
         m_velocity.z = 0.0f;
@@ -246,7 +250,7 @@ void CHierObject::BeginScriptMotionUpdate(float) {
     if (m_rotating) {
         m_rotation.Normalize();
         if (m_rotateTime <= 0.0f) {
-            TriggerScriptEvent(m_rotateEvent, (void*)m_index, false);
+            TriggerScriptEvent(m_rotateEvent, ADDR_TO_PTR(void, m_index), false);
             m_rotateTime = 0.0f;
             m_rotating = 0;
             m_angularVelocity.Set(0.0f, 0.0f, 0.0f, 1.0f);
@@ -484,7 +488,7 @@ void CHierObject::OnCollision(const CCollision& clsn) {
     }
     if (m_isRoot) {
         for (SClsnContact* c = clsn.m_pContacts; c != NULL; c = c->m_pNext) {
-            SetHierCollisionState((int)c->m_pPoly);
+            SetHierCollisionState((int)PTR_TO_ADDR(c->m_pPoly));
         }
         AttemptCollisionDamage(clsn);
     }
@@ -721,4 +725,5 @@ int CHierObject::GetObjectType() const {
 
 int CHierObject::Init() {
     CStaticObject::Init();
+    END_RETURN_NOTHING
 }

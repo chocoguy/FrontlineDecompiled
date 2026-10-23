@@ -93,10 +93,16 @@ static void fail(char*, ...) {}
 
 // Sound user data is little-endian.
 static inline u32 Swap32(u32 v) {
+#ifdef FRONTLINE_NATIVE
+    return v;  // little-endian data on a little-endian CPU: nothing to swap
+#endif
     return (v >> 24) | ((v >> 8) & 0xFF00) | ((v << 8) & 0xFF0000) | (v << 24);
 }
 
 static inline u16 Swap16(u16 v) {
+#ifdef FRONTLINE_NATIVE
+    return v;  // little-endian data on a little-endian CPU: nothing to swap
+#endif
     return (u16)((v >> 8) | (v << 8));
 }
 
@@ -232,7 +238,7 @@ static void _userdata_client(SNDUSERDATACBINFO* info) {
         return;
     }
     u8* chunk = data;
-    while ((u32)(chunk - info->m_size) < (u32)data) {
+    while ((uptr)((chunk - info->m_size)) < (uptr)(data)) {
         id = Swap32(((u32*)chunk)[0]);
         u32 size = Swap32(((u32*)chunk)[1]);
         switch (id) {
@@ -710,6 +716,7 @@ void ResetOneShotBank() {
         DebugMsg("Waiting for one shot sound bank to finish loading...\n");
         int start = CScreen::GetVSyncs();
         while (CScreen::GetVSyncs() - start < 2) {
+            SPIN_WAIT();
         }
         UpdateREAL();
         if (g_AEMSOneShotLoadState == 1 && SNDAEMS_asyncloadmodulebankdone() > 0) {
@@ -962,16 +969,16 @@ static inline void CreateMusicTrack(const char* mapFile, const char* musicFile) 
 void LoadLevelSoundModules(int mission, int stage) {
     LevelFileContentsStruct_* level = TLT_FindNextResourceByType((TLTResourceID)0xC, NULL);
     TLTResourceField* fields = level->fields;
-    aems_Init("data\\", (char*)fields[0].value, NULL, NULL, false);
+    aems_Init("data\\", ADDR_TO_PTR(char, fields[0].value), NULL, NULL, false);
     char dir[0x40];
     sprintf(dir, "data\\%d\\%d_%d\\", mission, mission, stage);
-    aems_Init(dir, NULL, (char*)level->fields[1].value, NULL, false);
-    aems_Init(dir, NULL, (char*)level->fields[2].value, NULL, false);
-    aems_Init(dir, NULL, (char*)level->fields[3].value, NULL, false);
-    aems_Init(dir, NULL, (char*)level->fields[4].value, NULL, false);
-    aems_Init(dir, NULL, (char*)level->fields[5].value, NULL, false);
-    aems_Init(dir, NULL, (char*)level->fields[6].value, (char*)level->fields[7].value, false);
-    aems_Init(dir, NULL, (char*)level->fields[10].value, NULL, false);
+    aems_Init(dir, NULL, ADDR_TO_PTR(char, level->fields[1].value), NULL, false);
+    aems_Init(dir, NULL, ADDR_TO_PTR(char, level->fields[2].value), NULL, false);
+    aems_Init(dir, NULL, ADDR_TO_PTR(char, level->fields[3].value), NULL, false);
+    aems_Init(dir, NULL, ADDR_TO_PTR(char, level->fields[4].value), NULL, false);
+    aems_Init(dir, NULL, ADDR_TO_PTR(char, level->fields[5].value), NULL, false);
+    aems_Init(dir, NULL, ADDR_TO_PTR(char, level->fields[6].value), ADDR_TO_PTR(char, level->fields[7].value), false);
+    aems_Init(dir, NULL, ADDR_TO_PTR(char, level->fields[10].value), NULL, false);
     SetEffectsVolume();
 
     // No music in the D-Day intro.
@@ -998,7 +1005,7 @@ void LoadLevelSoundModules(int mission, int stage) {
             DebugMsg("MusicFile: %s \n", musicFile);
             CreateMusicTrack(mapFile, musicFile);
         } else {
-            CreateMusicTrack((const char*)level->fields[8].value, (const char*)level->fields[9].value);
+            CreateMusicTrack(ADDR_TO_PTR(const char, level->fields[8].value), ADDR_TO_PTR(const char, level->fields[9].value));
         }
     }
     g_soundMapSingleton.Init(mission, stage);

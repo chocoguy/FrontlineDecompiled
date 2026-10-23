@@ -100,9 +100,18 @@ void CTexture::Set(Shape* shape, bool) {
 }
 
 void CTexture::Set(ShapeFile* file, bool unused) {
+#ifdef FRONTLINE_NATIVE
+    // "SHPN": already swapped to little-endian (see ShapeFileFromBigEndian).
+    if (strncmp(file->magic, "SHP", 3) != 0 || (file->magic[3] != 'G' && file->magic[3] != 'N')) {
+        DebugMsg("Non GAMECUBE shape format!\n");
+        return;
+    }
+    ShapeFileFromBigEndian(file);
+#else
     if (strncmp(file->magic, "SHPG", 4) != 0) {
         DebugMsg("Non GAMECUBE shape format!\n");
         return;
     }
+#endif
     Set((Shape*)((u8*)file + file->firstShape), unused);
 }

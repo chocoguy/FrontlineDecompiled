@@ -45,6 +45,9 @@ void SNDAEMSI_almbservice() {
         int size;
         FILESYS_completeop(SNDAEMSalmbfirstreadop);
         start = (MODULEBANK*)SNDAEMSalmbploadbuf;
+#ifdef FRONTLINE_NATIVE
+        AEMSBankHeaderFromBigEndian(start);
+#endif
         SNDAEMSalmbfirstreadop = 0;
         SNDAEMSalmbpmb = start;
         size = start->size - (start->sfxBankSize + start->midiBankSize);

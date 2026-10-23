@@ -57,7 +57,7 @@ static UISParam_t uisFormatStringStack[20];
         s16 slot_;                                                             \
         READ_U32(stack, offset_);                                              \
         READ_S16(stack, slot_);                                                \
-        (out) = (u32*)(offset_ + (stack)->sp[slot_].value);                    \
+        (out) = ADDR_TO_PTR(u32, offset_ + (stack)->sp[slot_].value);          \
     } while (0)
 
 // Array layout: [numDims, dim sizes..., elements...]. Indices sit on the
@@ -157,8 +157,8 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
             u8 mode = READ_U8(stack);
             u8* data2 = NULL;
             u8* rateData = NULL;
-            UISControlInfo_t* ctrl = (UISControlInfo_t*)POP(stack);
-            UISControlInfo_t* ctrl2 = (UISControlInfo_t*)POP(stack);
+            UISControlInfo_t* ctrl = ADDR_TO_PTR(UISControlInfo_t, POP(stack));
+            UISControlInfo_t* ctrl2 = ADDR_TO_PTR(UISControlInfo_t, POP(stack));
             if (mode >= 5) {
                 if (mode >= 6) {
                     rateData = (u8*)screen->data + POP(stack);
@@ -173,7 +173,7 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
             break;
         }
         case 0x06: {  // rate function
-            UISControlInfo_t* ctrl = (UISControlInfo_t*)POP(stack);
+            UISControlInfo_t* ctrl = ADDR_TO_PTR(UISControlInfo_t, POP(stack));
             u32 arg = POP(stack);
             u32 offset = POP(stack);
             u32 id = POP(stack);
@@ -181,7 +181,7 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
             break;
         }
         case 0x07: {
-            UISControlInfo_t* ctrl = (UISControlInfo_t*)POP(stack);
+            UISControlInfo_t* ctrl = ADDR_TO_PTR(UISControlInfo_t, POP(stack));
             u32 id = POP(stack);
             UISUnloadRateFnc(info, ctrl, id);
             break;
@@ -190,7 +190,7 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
             u32 n = POP(stack);
             u32 plugin = POP(stack);
             u32 arg = POP(stack);
-            void* object = (void*)POP(stack);
+            void* object = ADDR_TO_PTR(void, POP(stack));
             UISParam_t* params = stack->sp - n;
             info->plugins[plugin](object, arg, n, params, params - 1);
             break;
@@ -218,12 +218,12 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
             break;
         }
         case 0x0D:
-            top[0] = (u32)screen->data;
+            top[0] = (u32)PTR_TO_ADDR(screen->data);
             stack->sp++;
             break;
         case 0x0E: {  // strncpy
-            UISString_t* dst = (UISString_t*)POP(stack);
-            UISString_t* src = (UISString_t*)POP(stack);
+            UISString_t* dst = ADDR_TO_PTR(UISString_t, POP(stack));
+            UISString_t* src = ADDR_TO_PTR(UISString_t, POP(stack));
             u32 n = POP(stack);
             if (dst->maxLength < n) {
                 n = dst->maxLength;
@@ -261,14 +261,14 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
         case 0x6A:
             break;
         case 0x18:  // load through pointer
-            top[-1] = *(u32*)top[-1];
+            top[-1] = *ADDR_TO_PTR(u32, top[-1]);
             break;
         case 0x19:  // store through pointer
-            *(u32*)top[-1] = top[-2];
+            *ADDR_TO_PTR(u32, top[-1]) = top[-2];
             stack->sp -= 2;
             break;
         case 0x69:  // address of local
-            top[-1] = (u32)&top[topi[-1] - 1];
+            top[-1] = (u32)PTR_TO_ADDR(&top[topi[-1] - 1]);
             break;
         case 0x1A:  // load local
             top[-1] = top[topi[-1] - 1];
@@ -415,22 +415,22 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
             topi[-2] = topf[-1] != topf[-2];
             stack->sp--;
             break;
-        case 0x3E: {  // branch if true
-            u32 offset = POP(stack);
+        case 0x3E: {  // branch if true (offsets are signed: loops branch back)
+            s32 offset = POP(stack);
             if (POP(stack) != 0) {
                 stack->pc = (u8*)stack->pc + offset;
             }
             break;
         }
         case 0x3F: {  // branch if false
-            u32 offset = POP(stack);
+            s32 offset = POP(stack);
             if (POP(stack) == 0) {
                 stack->pc = (u8*)stack->pc + offset;
             }
             break;
         }
         case 0x40: {
-            u32 offset = POP(stack);
+            s32 offset = POP(stack);
             stack->pc = (u8*)stack->pc + offset;
             break;
         }
@@ -444,16 +444,16 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
         case 0x43: {  // call
             u32 offset;
             READ_U32(stack, offset);
-            PUSH(stack, (u32)stack->pc);
+            PUSH(stack, (u32)PTR_TO_ADDR(stack->pc));
             stack->pc = (u8*)screen->data + offset;
             break;
         }
         case 0x44:  // return
-            stack->pc = (void*)POP(stack);
+            stack->pc = ADDR_TO_PTR(void, POP(stack));
             break;
         case 0x45: {  // load the screen named by a variable, if any
             u8 n = READ_U8(stack);
-            u32* var = (u32*)POP(stack);
+            u32* var = ADDR_TO_PTR(u32, POP(stack));
             u32 handle = *(u32*)((u8*)screen->data + *var);
             if (handle != 0xFFFFFFFF) {
                 SET_SCREEN_GROUP(g, handle, screen);
@@ -465,22 +465,22 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
             break;
         }
         case 0x46: {  // deactivate a control list
-            u32* var = (u32*)POP(stack);
+            u32* var = ADDR_TO_PTR(u32, POP(stack));
             u32* list = (u32*)((u8*)screen->data + *var);
             s32 index = POP(stack);
             if (index < (s32)list[0]) {
-                SET_CONTROL_GROUP(g, 0, (u32)list, (u32)((u8*)screen->data + list[1]), screen);
+                SET_CONTROL_GROUP(g, 0, (u32)PTR_TO_ADDR(list), (u32)PTR_TO_ADDR(((u8*)screen->data + list[1])), screen);
                 UISAddThreadAction(info, UIS_TA_DEACTIVATE_CONTROL, &g, 0, NULL);
             }
             break;
         }
         case 0x09:  // activate the enabled sibling of this control
-            SET_CONTROL_GROUP(g, 0, 0, (u32)UISFindSiblingEnableControl(screen, control), screen);
+            SET_CONTROL_GROUP(g, 0, 0, (u32)PTR_TO_ADDR(UISFindSiblingEnableControl(screen, control)), screen);
             UISAddThreadAction(info, UIS_TA_ACTIVATE_CONTROL, &g, 0, NULL);
             break;
         case 0x47: {  // activate control `index` of a list
             u32 id = POP(stack);
-            u32* var = (u32*)POP(stack);
+            u32* var = ADDR_TO_PTR(u32, POP(stack));
             UISParam_t param;
             s32 index = POP(stack);
             param.value = index;
@@ -489,7 +489,7 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
             if (index < (s32)list[0]) {
                 UISControlInfo_t* ctrl = (UISControlInfo_t*)(list[index + 2] + data);
                 if (control != ctrl || ctrl->enabled == 0) {
-                    SET_CONTROL_GROUP(g, id, (u32)list, (u32)ctrl, screen);
+                    SET_CONTROL_GROUP(g, id, (u32)PTR_TO_ADDR(list), (u32)PTR_TO_ADDR(ctrl), screen);
                     UISAddThreadAction(info, UIS_TA_ACTIVATE_CONTROL, &g, 1, &param);
                 }
             }
@@ -501,7 +501,7 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
             UISAddThreadAction(info, UIS_TA_ACTIVATE_SCREEN, &g, 0, NULL);
             break;
         case 0x49: {  // string length
-            UISString_t* str = (UISString_t*)POP(stack);
+            UISString_t* str = ADDR_TO_PTR(UISString_t, POP(stack));
             if (str != NULL) {
                 stack->sp[-1].value = str->maxLength;
             } else {
@@ -512,7 +512,7 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
         case 0x4A: {  // get char
             s32 ch = 0;
             u32 index = POP(stack);
-            UISString_t* str = (UISString_t*)POP(stack);
+            UISString_t* str = ADDR_TO_PTR(UISString_t, POP(stack));
             if (str != NULL && index < str->maxLength) {
                 ch = (s8)str->text[index];
             }
@@ -522,7 +522,7 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
         case 0x4B: {  // set char
             u32 ch = POP(stack);
             u32 index = POP(stack);
-            UISString_t* str = (UISString_t*)POP(stack);
+            UISString_t* str = ADDR_TO_PTR(UISString_t, POP(stack));
             if (str != NULL && index < str->maxLength) {
                 str->text[index] = ch;
             }
@@ -538,8 +538,8 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
                     stack->sp--;
                 }
             }
-            UISString_t* fmt = (UISString_t*)POP(stack);
-            UISString_t* dst = (UISString_t*)POP(stack);
+            UISString_t* fmt = ADDR_TO_PTR(UISString_t, POP(stack));
+            UISString_t* dst = ADDR_TO_PTR(UISString_t, POP(stack));
             UISStringFormat(screen->data, dst, fmt, n, uisFormatStringStack);
             break;
         }
@@ -609,7 +609,7 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
             u32* addr;
             READ_VAR_ADDR(stack, addr);
             if (op == 0x6B) {
-                stack->sp->value = (u32)addr;
+                stack->sp->value = (u32)PTR_TO_ADDR(addr);
                 stack->sp++;
             } else {
                 stack->sp->value = *addr;
@@ -627,7 +627,7 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
         case 0x57: {
             u32* addr;
             READ_VAR_ADDR(stack, addr);
-            stack->sp->value = (u32)addr;
+            stack->sp->value = (u32)PTR_TO_ADDR(addr);
             stack->sp++;
             break;
         }
@@ -647,7 +647,7 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
             switch (op) {
             case 0x61:  // local holding the array pointer
                 skip = 1;
-                array = (s32*)top[topi[-1] - 1];
+                array = ADDR_TO_PTR(s32, top[topi[-1] - 1]);
                 break;
             case 0x5B:  // array in the locals
             case 0x6C:
@@ -656,7 +656,7 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
                 break;
             case 0x5D:  // array pointer on the stack
             case 0x6D:
-                array = (s32*)topi[-1];
+                array = ADDR_TO_PTR(s32, topi[-1]);
                 skip = 1;
                 break;
             case 0x5F:  // variable
@@ -669,7 +669,7 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
             u32* element;
             ARRAY_ELEMENT(top, array, skip, element);
             if (op == 0x6C || op == 0x6D || op == 0x6E) {
-                top[-(numDims + skip)] = (u32)element;
+                top[-(numDims + skip)] = (u32)PTR_TO_ADDR(element);
             } else {
                 top[-(numDims + skip)] = *element;
             }
@@ -685,14 +685,14 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
             switch (op) {
             case 0x62:
                 skip = 1;
-                array = (s32*)top[topi[-1] - 1];
+                array = ADDR_TO_PTR(s32, top[topi[-1] - 1]);
                 break;
             case 0x5C:
                 skip = 1;
                 array = (s32*)&top[topi[-1] - 1];
                 break;
             case 0x5E:
-                array = (s32*)topi[-1];
+                array = ADDR_TO_PTR(s32, topi[-1]);
                 skip = 1;
                 break;
             case 0x60:
@@ -743,7 +743,7 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
                 array = (s32*)&top[topi[-1] - 1];
                 break;
             case 0x67:
-                array = (s32*)topi[-1];
+                array = ADDR_TO_PTR(s32, topi[-1]);
                 skip = 1;
                 break;
             case 0x68:
@@ -765,7 +765,7 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
             UISScrData_t* scr = screen->data;
             u32 index = top[-1];
             if (index < scr->numStrings) {
-                top[-1] = (u32)&scr->strings[index];
+                top[-1] = (u32)PTR_TO_ADDR(&scr->strings[index]);
             } else {
                 top[-1] = 0;
             }
@@ -780,7 +780,7 @@ signed char UISStackProcess(UISInfo_t* info, UISParam_t* frame, UISStackInfo_t* 
             break;
         }
         case 0x73: {  // is a rate function running
-            UISControlInfo_t* ctrl = (UISControlInfo_t*)POP(stack);
+            UISControlInfo_t* ctrl = ADDR_TO_PTR(UISControlInfo_t, POP(stack));
             u32 id = POP(stack);
             u32 found = UISFindRateFnc(info, ctrl, id);
             stack->sp->value = found < info->numRateFncs;

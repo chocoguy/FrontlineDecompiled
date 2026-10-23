@@ -24,14 +24,17 @@ CStaticMesh::CStaticMesh() {
     m_fogging = true;
 }
 
+// Converts a little-endian value (the weapon files are) to the CPU's order.
 template <class T>
 static inline void SwapBytes(T& value) {
+#ifndef FRONTLINE_NATIVE  // natively the CPU is little-endian too
     u8* b = (u8*)&value;
     for (int i = 0; i < (int)sizeof(T) / 2; i++) {
         u8 t = b[i];
         b[i] = b[sizeof(T) - 1 - i];
         b[sizeof(T) - 1 - i] = t;
     }
+#endif
 }
 
 // Reads a little-endian value at `at`.
@@ -92,21 +95,21 @@ void CWeaponFactory::LoadWeaponParameters() {
     LevelFileContentsStruct_* level = TLT_FindNextResourceByType((TLTResourceID)0xB, NULL);
     u8* file;
     if (g_bInMultiplayerMode) {
-        file = (u8*)TLT_LoadFileFromLevelBigFile((char*)level->fields[65].value, NULL);
+        file = (u8*)TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(char, level->fields[65].value), NULL);
     } else {
         switch (g_Shell.Get_currentDifficulty()) {
         case 1:
-            file = (u8*)TLT_LoadFileFromLevelBigFile((char*)level->fields[4].value, NULL);
+            file = (u8*)TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(char, level->fields[4].value), NULL);
             break;
         case 2:
-            file = (u8*)TLT_LoadFileFromLevelBigFile((char*)level->fields[5].value, NULL);
+            file = (u8*)TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(char, level->fields[5].value), NULL);
             break;
         case 3:
-            file = (u8*)TLT_LoadFileFromLevelBigFile((char*)level->fields[6].value, NULL);
+            file = (u8*)TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(char, level->fields[6].value), NULL);
             break;
         default:
             DebugMsg("Unknown difficulty level.  Assuming Level TE\n");
-            file = (u8*)TLT_LoadFileFromLevelBigFile((char*)level->fields[4].value, NULL);
+            file = (u8*)TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(char, level->fields[4].value), NULL);
             break;
         }
     }

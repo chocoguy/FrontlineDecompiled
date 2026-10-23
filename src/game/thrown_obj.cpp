@@ -128,6 +128,7 @@ int CThrownObject::Init() {
     m_bsgo.m_object = NULL;
     m_bsgo.m_node = this;
     m_impactSound = 0;
+    END_RETURN_NOTHING
 }
 
 void CThrownObject::CleanUp() {
@@ -322,11 +323,12 @@ int CThrownObject::BeginUpdate(float dt) {
             m_lifeTime = 0.0f;
         }
     }
+    END_RETURN_NOTHING
 }
 
 int CThrownObject::AttemptUpdate(float dt) {
     if (m_deleted) {
-        return;
+        RETURN_NOTHING;
     }
     m_pushDir.z = 0.0f;
     m_pushDir.y = 0.0f;
@@ -344,12 +346,13 @@ int CThrownObject::AttemptUpdate(float dt) {
     pos.z = m_motionPos.z + m_move.z;
     m_tm.SetPos(pos);
     UpdateWorldVolume();
+    END_RETURN_NOTHING
 }
 
 // Removes the object once its lifetime runs out.
 int CThrownObject::CommitUpdate() {
     if (m_deleted) {
-        return;
+        RETURN_NOTHING;
     }
     if (m_lifeTime > 0.0f) {
         if (m_pWorldBound != m_pWorldVolume && m_pWorldBound != NULL && m_pLocalVolume != NULL) {
@@ -365,9 +368,10 @@ int CThrownObject::CommitUpdate() {
         }
         m_onGround = 0;
         m_pushed = 0;
-        return;
+        RETURN_NOTHING;
     }
     MarkForDestruction(0);
+    END_RETURN_NOTHING
 }
 
 // Free objects get knocked along by bullets.

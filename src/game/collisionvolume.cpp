@@ -61,6 +61,7 @@ int CCollisionVolume::BeginUpdate(float) {
         GetPosition(pos);
         SetExtents(pos, pos);
     }
+    END_RETURN_NOTHING
 }
 
 void CCollisionVolume::HandleBulletCollision(CBullet* bullet, const CCollision&) {

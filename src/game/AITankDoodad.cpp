@@ -13,7 +13,11 @@ CAITankDoodad::~CAITankDoodad() {
 
 // The filter is placed in the tank object's factory slot, past the fields
 // known so far (see CAISoldierDoodad::Init).
+#ifdef FRONTLINE_NATIVE
+#define TANK_AI_FILTER_OFFSET ((sizeof(CTankObject) + 0xF) & ~0xF)  // past the native object
+#else
 #define TANK_AI_FILTER_OFFSET 0x830
+#endif
 
 void CAITankDoodad::Init(CTankObject* tank) {
     m_pFilter = new ((u8*)tank + TANK_AI_FILTER_OFFSET) CAIFilterTankObject;

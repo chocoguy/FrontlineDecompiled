@@ -115,7 +115,7 @@ static inline STREAMHEADERtag* getheader(int handle) {
     if (handle == 0) {
         bad = 1;
     } else {
-        h = ((STREAMTRACK*)handle)->header;
+        h = (ADDR_TO_PTR(STREAMTRACK, handle))->header;
         if (h->magic != STREAM_MAGIC) {
             bad = 1;
         } else {
@@ -241,7 +241,7 @@ static int parsechunks(STREAMHEADERtag* h) {
         tag = getle(p);
         if (req->tag == tag) {
             // Pad the end chunk so the next request starts aligned.
-            u32 misalign = (u32)h->parse & 31;
+            u32 misalign = (uptr)(h->parse) & 31;
             size = ((size + misalign + 31) & ~31) - misalign;
         }
 
@@ -286,7 +286,7 @@ static int parsechunks(STREAMHEADERtag* h) {
 
         if (cancelled) {
             if (getle(p) != req->tag) {
-                u32 misalign = (u32)h->parse & 31;
+                u32 misalign = (uptr)(h->parse) & 31;
                 putle(p + 4, (((size + misalign + 31) & ~31) - misalign) | (track << 24));
             }
             break;
@@ -533,7 +533,7 @@ int STREAM_create(int numrequests, int numfilters, int numtracks, void* buffer, 
     h->numfilters = numfilters;
     h->tracks = (STREAMTRACK*)(h->filters + numfilters);
     h->numtracks = numtracks;
-    h->bufstart = (u8*)(((u32)(h->tracks + numtracks) & ~31) + 0x20);
+    h->bufstart = (u8*)(((uptr)((h->tracks + numtracks)) & ~31) + 0x20);
     h->bufbase = h->bufstart;
     h->bufend = (u8*)buffer + bufferSize;
     h->state = STREAMSTATE_IDLE;
@@ -580,7 +580,7 @@ int STREAM_create(int numrequests, int numfilters, int numtracks, void* buffer, 
         h->tracks[i].num = i + 1;
         h->tracks[i].bytes = 0;
     }
-    return (int)h->tracks;
+    return (int)PTR_TO_ADDR(h->tracks);
 }
 
 void STREAM_setfilter(int stream, int filter, int mask, int value, int dest) {
@@ -670,7 +670,7 @@ int STREAM_taphandle(int stream, int track) {
     if (track < 1 || track > h->numtracks) {
         return 0;
     }
-    return (int)&h->tracks[track - 1];
+    return (int)PTR_TO_ADDR(&h->tracks[track - 1]);
 }
 
 int STREAM_queuefile(int stream, const char* name, int offset, int tag) {
@@ -830,7 +830,7 @@ void STREAM_cancelrequest(int stream, int id) {
             }
         } else if (inspan(t->next, start, end)) {
             do {
-                STREAM_release((int)t, STREAM_get((int)t));
+                STREAM_release((int)PTR_TO_ADDR(t), STREAM_get((int)PTR_TO_ADDR(t)));
             } while (t->bytes > 0 && inspan(t->next, start, end));
         }
     }
@@ -898,7 +898,7 @@ void STREAM_kill(int stream) {
             h->bufbase = h->bufstart;
         } else {
             // Pad the last chunk so the next data starts aligned.
-            u32 pad = 32 - ((u32)h->parse & 31);
+            u32 pad = 32 - ((uptr)(h->parse) & 31);
             if (pad == 32) {
                 pad = 0;
             }
@@ -913,7 +913,7 @@ void STREAM_kill(int stream) {
 // The track's next chunk (its header first), or NULL.
 void* STREAM_get(int stream) {
     STREAMHEADERtag* h = getheader(stream);
-    STREAMTRACK* t = (STREAMTRACK*)stream;
+    STREAMTRACK* t = ADDR_TO_PTR(STREAMTRACK, stream);
     u8* p;
     u32 n;
     int left;
@@ -984,7 +984,7 @@ int STREAM_gettable(int stream) {
     if (h == NULL) {
         return 0;
     }
-    return ((STREAMTRACK*)stream)->bytes;
+    return (ADDR_TO_PTR(STREAMTRACK, stream))->bytes;
 }
 
 int STREAM_state(int stream) {
@@ -1003,7 +1003,7 @@ u8 STREAM_isendofstream(int stream) {
     if (h->state != STREAMSTATE_IDLE) {
         return 0;
     }
-    if (((STREAMTRACK*)stream)->bytes != 0) {
+    if ((ADDR_TO_PTR(STREAMTRACK, stream))->bytes != 0) {
         return 0;
     }
     return 1;

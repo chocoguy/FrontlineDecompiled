@@ -18,20 +18,21 @@ struct ProjectileBulletProperties_struct {
     /* 0x00 */ f32 m_weight;
     /* 0x04 */ u8 unk_0x4[0x14];
     /* 0x18 */ char m_spriteName[0x14];  // the ammo icon
-    /* 0x2C */ CSprite* m_pSprite;
+    /* 0x2C */ PTR32(CSprite) m_pSprite;  // copied from the file with the rest
     /* 0x30 */ f32 m_damage;
     /* 0x34 */ s16 m_lifetime;  // time to live
     /* 0x36 */ u8 unk_0x36[0x2];
     /* 0x38 */ f32 m_tracerWidth;  // 0: no tracer
     /* 0x3C */ u8 unk_0x3C[0x4];
 };
+FILE_SIZE_ASSERT(ProjectileBulletProperties_struct, 0x40);
 
 // One thrown bullet type's parameters (size 0x4C).
 struct ThrownBulletProperties_struct {
     /* 0x00 */ f32 m_weight;
     /* 0x04 */ u8 unk_0x4[0x14];
     /* 0x18 */ char m_spriteName[0x14];
-    /* 0x2C */ CSprite* m_pSprite;
+    /* 0x2C */ PTR32(CSprite) m_pSprite;  // copied from the file with the rest
     /* 0x30 */ u32 field_0x30;
     /* 0x34 */ u32 field_0x34;
     /* 0x38 */ f32 m_friction;  // sliding loss on floors (scaled by how flat they are)
@@ -42,6 +43,7 @@ struct ThrownBulletProperties_struct {
     /* 0x4A */ s8 m_timed;  // explodes when its fuse runs out (else a dud)
     /* 0x4B */ s8 m_canCook;
 };
+FILE_SIZE_ASSERT(ThrownBulletProperties_struct, 0x4C);
 
 enum {
     NUM_PROJECTILE_BULLET_TYPES = 0x1F,

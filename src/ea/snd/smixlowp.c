@@ -6,7 +6,7 @@ extern "C" void MIX_setlowpass(int voice, f32 frac) {
     SNDMIXVOICE* mv = &sndmix.voices[voice];
     if (frac < 1.0f) {
         if (mv->lpf == NULL) {
-            mv->lpf = (LPFRCSTATE*)SNDMEMI_allocz(0x28);
+            mv->lpf = (LPFRCSTATE*)SNDMEMI_allocz(GC_SIZE(0x28, sizeof(LPFRCSTATE)));
             ((SFILTER*)mv->lpf)->destroy = NULL;
             ((SFILTER*)mv->lpf)->order = 0x28;
             SFILTER_createLPFRC(mv->lpf);

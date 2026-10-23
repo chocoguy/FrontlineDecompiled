@@ -38,7 +38,7 @@ static inline void setreverb() {
     } else {
         MIXFXHEADER* hdr;
         if (sndgs.fxbus[0].type == 1) {
-            hdr = (MIXFXHEADER*)sndgs.fxbus[0].param1;
+            hdr = ADDR_TO_PTR(MIXFXHEADER, sndgs.fxbus[0].param1);
         } else {
             hdr = (MIXFXHEADER*)fxdefault;
         }

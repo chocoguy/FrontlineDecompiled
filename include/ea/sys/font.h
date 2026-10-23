@@ -57,8 +57,51 @@ struct FONT {
     /* 0x38 */ f32 scaleX;
     /* 0x3C */ f32 scaleY;
     /* 0x40 */ u8 unk_0x40[0x30];
-    /* 0x70 */ void* user;  // the CFont drawing
+    /* 0x70 */ PTR32(void) user;  // the CFont drawing
 };
+FILE_SIZE_ASSERT(FONTCHAR, 0x10);
+FILE_SIZE_ASSERT(FONTKERN, 0x4);
+FILE_SIZE_ASSERT(FONT, 0x74);
+
+#ifdef FRONTLINE_NATIVE
+#include "game/shape.h"
+#include "native/swap.h"
+
+// Font files are big-endian ("FNTG"). Swaps the header, the character and kern
+// tables and the texture's record header (the pixels stay big-endian for the
+// GPU, as in shape files). The color is read as bytes (CColor), so it stays.
+// Returns false if the font was already swapped: its magic becomes "FNTL".
+inline bool FontFromBigEndian(FONT* font) {
+    u8* base = (u8*)font;
+    if (base[0] != 'F' || base[1] != 'N' || base[2] != 'T' || base[3] != 'G') {
+        return false;
+    }
+    base[3] = 'L';
+    NativeSwap16s(base + 0x4, 4);  // ..., numChars
+    NativeSwap32(base + 0xC);       // flags
+    NativeSwap16(base + 0x10);
+    NativeSwap32s(base + 0x14, 3);  // table offsets
+    NativeSwap32s(base + 0x24, (0x70 - 0x24) / 4);
+    bool wide = (font->flags & FONT_FLAG_WIDE) != 0;
+    for (int i = 0; i < font->numChars; i++) {
+        FONTCHAR* ch = (FONTCHAR*)(base + font->charOffset + i * (wide ? 0x10 : 0xC));
+        NativeSwap16(&ch->code);
+        NativeSwap16s(&ch->texX, 2);
+        if (wide) {
+            NativeSwap16s(&ch->kernIndex, 2);
+        }
+    }
+    if (font->kernOffset != 0) {
+        s32* table = (s32*)(base + font->kernOffset);
+        NativeSwap32(table);
+        for (int i = 0; i < table[0]; i++) {
+            NativeSwap16(&((FONTKERN*)(table + 1))[i].prev);
+        }
+    }
+    ShapeFromBigEndian(base + font->shapeOffset);
+    return true;
+}
+#endif
 
 // Callbacks the library uses to draw.
 struct FONTDRIVER {

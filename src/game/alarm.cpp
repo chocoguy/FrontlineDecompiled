@@ -67,7 +67,7 @@ void BIFunc_UnregisterAlarm(int** sp, void* self) {
 // SetAlarmOccupy(alarm, occupy): marks the alarm (by its script) as used by
 // the calling soldier, or frees it.
 void BIFunc_SetAlarmOccupy(int** sp, void* self) {
-    BSObject* alarm = (BSObject*)BIFArg(sp, 0);
+    BSObject* alarm = ADDR_TO_PTR(BSObject, BIFArg(sp, 0));
     bool occupy = BIFArg(sp, 1) != 0;
     ISceneNode* soldier = (ISceneNode*)((ISceneNode*)self)->AsSoldierObject();
     BSObject* script = (BSObject*)soldier->GetScriptObject();
@@ -85,7 +85,7 @@ void BIFunc_GetClosestAlarm(int** sp, void* self) {
     dwi::list<AlarmInfo>::node* closest = FindClosestFreeAlarm((ISceneNode*)self);
     BIFPop(sp);
     if (closest != g_alarms.end()) {
-        BIFReturn(sp, (int)closest->value.m_object->GetScriptObject());
+        BIFReturn(sp, (int)PTR_TO_ADDR(closest->value.m_object->GetScriptObject()));
     } else {
         BIFReturn(sp, 0);
     }

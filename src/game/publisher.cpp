@@ -53,7 +53,7 @@ void CPublisher::CancelSubscription(IObserver& observer, ISubject** slot) {
         e = map->end();
     } else {
         SubscriptionMap::entry* last = map->m_table + map->m_capacity;
-        e = map->m_table + (u32)*slot % map->m_capacity;
+        e = map->m_table + (uptr)(*slot) % map->m_capacity;
         for (;;) {
             if (e->key == (ISubject*)-1) {
                 e = last;

@@ -37,7 +37,7 @@ static u32* g_piFrame;
 static int g_iStopThread;
 static u32* g_piCodeBase;  // segment table: segment addresses
 static u32* g_piGlobals;
-static BSHandler_struct** g_ppsteStateEntries;
+static PTR32(BSHandler_struct)* g_ppsteStateEntries;
 BSMachineThread_struct* g_pbmtThread;
 static ISceneNode* g_pObj;  // scene node of the running object
 static BSMessageListEntry_struct* g_MessageList;
@@ -50,7 +50,7 @@ static int g_iDefaultStackSize = 0x40;  // words
 
 // Code address (segment << 24 | word offset) to pointer.
 static inline u32* CodeAddress(u32* segments, u32 address) {
-    return (u32*)segments[address >> 24] + (address & 0xFFFFFF);
+    return ADDR_TO_PTR(u32, segments[address >> 24]) + (address & 0xFFFFFF);
 }
 
 static inline f32& AsFloat(u32& word) {
@@ -101,7 +101,7 @@ void BSOpCodeFunc_NEXTSTATE() {
     u8 newLevel = g_ppsteStateEntries[(u16)newState]->m_level;
     bool notDeeper = newLevel <= g_ppsteStateEntries[current]->m_level;
     if (!(thread->m_flags & BSTHREAD_EXITING) && notDeeper) {
-        BSHandler_struct** handlers = thread->m_code->m_handlers;
+        PTR32(BSHandler_struct)* handlers = thread->m_code->m_handlers;
         for (u16 s = current; s != 0xFFFF && !exiting;) {
             BSHandler_struct* handler = handlers[s];
             if (handler->m_level < newLevel) {
@@ -163,7 +163,7 @@ void BSOpCodeFunc_NEXTSTATE() {
     g_piStackTop = g_piFrame + 1;
     u32 address = entry->m_address;
     g_piStackTop[-1] = (u16)newState;
-    *g_piStackTop = (u32)g_pBSObject;
+    *g_piStackTop = (u32)PTR_TO_ADDR(g_pBSObject);
     g_piIP = CodeAddress(g_piCodeBase, address);
 }
 
@@ -181,7 +181,7 @@ void BSOpCodeFunc_BREAK() {
 void BSOpCodeFunc_RETURN() {
     u32* frame = g_piFrame;
     u32* saved = frame + BS_BYTE3(*g_piIP);
-    g_piFrame = (u32*)saved[0];
+    g_piFrame = ADDR_TO_PTR(u32, saved[0]);
     if (BS_BYTE2(*g_piIP) != 0) {
         u32* top = g_piStackTop;
         g_piStackTop = frame;
@@ -189,7 +189,7 @@ void BSOpCodeFunc_RETURN() {
     } else {
         g_piStackTop = frame - 1;
     }
-    g_piIP = (u32*)saved[1];
+    g_piIP = ADDR_TO_PTR(u32, saved[1]);
 }
 
 void BSOpCodeFunc_BIFNCALL() {
@@ -204,8 +204,8 @@ void BSOpCodeFunc_FNCALL() {
     u32* ip = g_piIP;
     u32* top = g_piStackTop;
     g_piStackTop = top + 2;
-    top[1] = (u32)g_piFrame;
-    top[2] = (u32)(ip + 2);
+    top[1] = (u32)PTR_TO_ADDR(g_piFrame);
+    top[2] = (u32)PTR_TO_ADDR((ip + 2));
     g_piFrame = top - BS_BYTE2(ip[0]) + 1;
     g_piIP = CodeAddress(g_piCodeBase, ip[1]);
 }
@@ -216,7 +216,7 @@ void BSOpCodeFunc_GP() {
     u32 w = *g_piIP;
     xyzProperty_Struct* data;
     if (BS_BYTE3(w) != 0) {
-        data = (xyzProperty_Struct*)((TriggerObject_struct*)g_piFrame[3])->m_data;
+        data = (xyzProperty_Struct*)(ADDR_TO_PTR(TriggerObject_struct, g_piFrame[3]))->m_data;
     } else {
         data = (xyzProperty_Struct*)g_pBSObject->m_trigger->m_data;
     }
@@ -227,19 +227,19 @@ void BSOpCodeFunc_GP() {
 
 // Pushes string `operand` of the running class.
 void BSOpCodeFunc_LS() {
-    *++g_piStackTop = (u32)g_pBSObject->m_class->m_strings[BS_OPERAND(*g_piIP)];
+    *++g_piStackTop = (u32)PTR_TO_ADDR(g_pBSObject->m_class->m_strings[BS_OPERAND(*g_piIP)]);
     g_piIP++;
 }
 
 // Replaces the pointer on top with its word `operand`.
 void BSOpCodeFunc_LM() {
-    *g_piStackTop = ((u32*)*g_piStackTop)[BS_OPERAND(*g_piIP)];
+    *g_piStackTop = (ADDR_TO_PTR(u32, *g_piStackTop))[BS_OPERAND(*g_piIP)];
     g_piIP++;
 }
 
 // Stores the second word into word `operand` of the pointer on top.
 void BSOpCodeFunc_SM() {
-    ((u32*)g_piStackTop[0])[BS_OPERAND(*g_piIP)] = g_piStackTop[-1];
+    (ADDR_TO_PTR(u32, g_piStackTop[0]))[BS_OPERAND(*g_piIP)] = g_piStackTop[-1];
     g_piStackTop -= 2;
     g_piIP++;
 }
@@ -422,7 +422,7 @@ int BSExecuteThread(BSObject* obj, BSMachineThread_struct* thread) {
     u32* savedIP = g_piIP;
     g_piCodeBase = thread->m_code->m_code;
     u32* savedGlobals = g_piGlobals;
-    BSHandler_struct** savedStates = g_ppsteStateEntries;
+    PTR32(BSHandler_struct)* savedStates = g_ppsteStateEntries;
     g_piStackTop = thread->m_sp;
     int savedBIF = g_iCurrentBIFIndex;
     ISceneNode* savedNode = g_pObj;

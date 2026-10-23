@@ -13,7 +13,7 @@ struct UISString_t;
 #define TIBTEXT_ALIGN_RIGHT 0x20
 
 struct TibTextGraphicDataT {
-    /* 0x00 */ UISString_t* string;  // a file offset until loaded
+    /* 0x00 */ PTR32(UISString_t) string;  // a file offset until loaded
     /* 0x04 */ u8 unk_0x4[0x4];
     /* 0x08 */ s16 fontIndex;  // in LibraryInfo[library]
     /* 0x0A */ s16 library;    // negative = hidden
@@ -27,6 +27,7 @@ struct TibTextGraphicDataT {
     /* 0x40 */ f32 field_0x40[3];
     /* 0x4C */ s16 height;
 };
+FILE_SIZE_ASSERT(TibTextGraphicDataT, 0x50);
 
 void TibTextDraw(TibTextGraphicDataT*);  // 0x8008C828
 // The control's event handler (UISExecuteFnc): -1 load, -2 draw, -3 unload,

@@ -34,6 +34,7 @@ struct StaticMeshHardPoint {
     /* 0x40 */ int m_id;
     /* 0x44 */ u32 unk_0x44[3];
 };
+FILE_SIZE_ASSERT(StaticMeshHardPoint, 0x50);
 
 // A chunk's display list. The list starts with 0x34 bytes of array setup
 // commands (written by Init), then the triangles.
@@ -41,30 +42,32 @@ struct MSHDisplayList {
     /* 0x00 */ u32 m_flags;  // bit 0: 8-bit indices, bit 2: a strip
     /* 0x04 */ u8 unk_0x4[0x8];
     /* 0x0C */ u32 m_size;  // vertex count until Init, then the list's byte size
-    /* 0x10 */ f32* m_positions;
-    /* 0x14 */ u32* m_colors;
-    /* 0x18 */ u8* m_normals;
-    /* 0x1C */ f32* m_texCoords;
-    /* 0x20 */ MSHVertex_GC* m_list;
+    /* 0x10 */ PTR32(f32) m_positions;
+    /* 0x14 */ PTR32(u32) m_colors;
+    /* 0x18 */ PTR32(u8) m_normals;
+    /* 0x1C */ PTR32(f32) m_texCoords;
+    /* 0x20 */ PTR32(MSHVertex_GC) m_list;
 };
+FILE_SIZE_ASSERT(MSHDisplayList, 0x24);
 
 // A piece of a node drawn with one material. size 0x20
 struct MSHChunk {
-    /* 0x00 */ MSHNode* m_node;
-    /* 0x04 */ CMSHMatBin* m_material;
-    /* 0x08 */ MSHDisplayList* m_list;
+    /* 0x00 */ PTR32(MSHNode) m_node;
+    /* 0x04 */ PTR32(CMSHMatBin) m_material;  // natively a separate object, not the file record
+    /* 0x08 */ PTR32(MSHDisplayList) m_list;
     /* 0x0C */ u32 unk_0xC;
-    /* 0x10 */ MSHChunk* m_next;  // in the material's queue
+    /* 0x10 */ PTR32(MSHChunk) m_next;  // in the material's queue
     /* 0x14 */ u8 unk_0x14[0xC];
 };
+FILE_SIZE_ASSERT(MSHChunk, 0x20);
 
 // A node of the mesh's bounding box tree (leaves hold chunks). The box axes
 // carry the half extents. size 0x60
 class MSHNode {
 public:
-    /* 0x00 */ MSHChunk* m_chunks;
+    /* 0x00 */ PTR32(MSHChunk) m_chunks;
     /* 0x04 */ int m_numChunks;
-    /* 0x08 */ MSHNode* m_children[2];
+    /* 0x08 */ PTR32(MSHNode) m_children[2];
     /* 0x10 */ CVector3 m_axisX;
     /* 0x20 */ CVector3 m_axisY;
     /* 0x30 */ CVector3 m_axisZ;
@@ -72,6 +75,7 @@ public:
     /* 0x50 */ u32 m_drawFlags;  // MSHNODE_*
     /* 0x54 */ u32 unk_0x54[3];
 };
+FILE_SIZE_ASSERT(MSHNode, 0x60);
 
 enum {
     MSHNODE_LIT = 2,
@@ -82,25 +86,75 @@ enum {
 // The static mesh file header.
 struct StaticMesh {
     /* 0x00 */ u8 unk_0x0[0x8];
-    /* 0x08 */ CMSHMatBin* m_opaque;
+    /* 0x08 */ PTR32(CMSHMatBin) m_opaque;  // materials (0x70-byte records; natively a separate array)
     /* 0x0C */ int m_numOpaque;
-    /* 0x10 */ CMSHMatBin* m_alpha;
+    /* 0x10 */ PTR32(CMSHMatBin) m_alpha;
     /* 0x14 */ int m_numAlpha;
-    /* 0x18 */ MSHChunk* m_chunks;
+    /* 0x18 */ PTR32(MSHChunk) m_chunks;
     /* 0x1C */ int m_numChunks;
-    /* 0x20 */ MSHNode* m_nodes;  // the root first: the mesh bounds
+    /* 0x20 */ PTR32(MSHNode) m_nodes;  // the root first: the mesh bounds
     /* 0x24 */ int m_numNodes;
-    /* 0x28 */ StaticMeshHardPoint* m_hardPoints;
+    /* 0x28 */ PTR32(StaticMeshHardPoint) m_hardPoints;
     /* 0x2C */ int m_numHardPoints;
 };
+FILE_SIZE_ASSERT(StaticMesh, 0x30);
 
 // An animated mesh file: one mesh per frame.
 struct StaticAnimMesh {
     /* 0x00 */ u8 unk_0x0[0x8];
-    /* 0x08 */ StaticMesh** m_frames;
+    /* 0x08 */ PTR32(PTR32(StaticMesh)) m_frames;
     /* 0x0C */ int m_numFrames;
     /* 0x10 */ int m_ticksPerFrame;
 };
+FILE_SIZE_ASSERT(StaticAnimMesh, 0x14);
+
+#ifdef FRONTLINE_NATIVE
+#include "native/swap.h"
+
+// A material as stored in the file; natively CStaticMesh::Init builds a
+// separate CMSHMatBin from it (see CPTMaterialRecord).
+struct MSHMaterialRecord {
+    /* 0x00 */ u8 unk_0x0[0x60];  // room for the CMSHMatBin built over it
+    /* 0x60 */ PTR32(ShapeFile) m_shape;
+    /* 0x64 */ u32 m_flags;
+    /* 0x68 */ u32 m_chunks;
+    /* 0x6C */ u32 unk_0x6C;
+};
+FILE_SIZE_ASSERT(MSHMaterialRecord, 0x70);
+
+// .msh files are big-endian GameCube data. Swaps the fields the CPU reads
+// (offsets are still file-relative here); vertex arrays, display list
+// commands and textures are read by the GPU and stay big-endian.
+inline void StaticMeshFromBigEndian(StaticMesh* mesh) {
+    u8* base = (u8*)mesh;
+    NativeSwapOnce once;
+    NativeSwap32s(mesh, sizeof(StaticMesh) / 4);
+    u32 records[2] = {mesh->m_opaque.addr(), mesh->m_alpha.addr()};
+    int counts[2] = {mesh->m_numOpaque, mesh->m_numAlpha};
+    for (int s = 0; s < 2; s++) {
+        for (int i = 0; i < counts[s]; i++) {
+            NativeSwap32s(base + records[s] + i * sizeof(MSHMaterialRecord) + 0x60, 4);
+        }
+    }
+    for (int i = 0; i < mesh->m_numChunks; i++) {
+        u8* chunk = base + mesh->m_chunks.addr() + i * sizeof(MSHChunk);
+        NativeSwap32s(chunk, sizeof(MSHChunk) / 4);
+        u32 list = ((MSHChunk*)chunk)->m_list.addr();
+        if (list != 0 && once.first(base + list)) {
+            NativeSwap32s(base + list, sizeof(MSHDisplayList) / 4);
+        }
+    }
+    NativeSwap32s(base + mesh->m_nodes.addr(), mesh->m_numNodes * (sizeof(MSHNode) / 4));
+    NativeSwap32s(base + mesh->m_hardPoints.addr(), mesh->m_numHardPoints * (sizeof(StaticMeshHardPoint) / 4));
+}
+
+// The animated-mesh header and its frame table; each frame is a StaticMesh,
+// swapped when CStaticMesh::Init relocates it.
+inline void StaticAnimMeshFromBigEndian(StaticAnimMesh* anim) {
+    NativeSwap32s(anim, sizeof(StaticAnimMesh) / 4);
+    NativeSwap32s((u8*)anim + anim->m_frames.addr(), anim->m_numFrames);
+}
+#endif
 
 // size 0xC (operator new); vtable 0x8018B4F0
 class CStaticMesh {

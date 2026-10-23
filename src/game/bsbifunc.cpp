@@ -72,6 +72,7 @@
 #include "game/animplayer.h"
 #include "game/alarm.h"
 #include "game/endian.h"
+#include "game/staticmesh.h"
 #include "math.h"
 #include "string.h"
 
@@ -179,14 +180,14 @@ void BIFunc_AIResetTargetMatchList(int** sp, void* self) {
 
 void BIFunc_AISetupTargetMatchList(int** sp, void* self) {
     CAIFilterObject* filter = SelfFilter(self);
-    filter->SetupTargetMatchList((aifilter_target_mode)BIFArg(sp, 0), *(aistatus_match**)BIFArg(sp, 1),
+    filter->SetupTargetMatchList((aifilter_target_mode)BIFArg(sp, 0), *ADDR_TO_PTR(aistatus_match*, BIFArg(sp, 1)),
                                  BIFArg(sp, 2));
     BIFPop(sp);
 }
 
 void BIFunc_AIChooseTarget(int** sp, void* self) {
     float dt = BIFArgF(sp, 0);
-    int target = (int)SelfFilter(self)->ChooseTarget(dt);
+    int target = (int)PTR_TO_ADDR(SelfFilter(self)->ChooseTarget(dt));
     BIFPop(sp);
     BIFReturn(sp, target);
 }
@@ -195,7 +196,7 @@ void BIFunc_AIChooseTarget(int** sp, void* self) {
 // no object.
 void BIFunc_AIChooseTargetByID(int** sp, void* self) {
     CAIObject* ai = SelfAI(self);
-    BSObject* obj = (BSObject*)BIFArg(sp, 0);
+    BSObject* obj = ADDR_TO_PTR(BSObject, BIFArg(sp, 0));
     bool result;
     if (obj == NULL || obj == BS_INVALID_OBJECT) {
         ai->SetTarget(NULL);
@@ -226,13 +227,13 @@ void BIFunc_AISetHearingRadius(int** sp, void* self) {
 }
 
 void BIFunc_AIGetSoldierMatchListStruct(int** sp, void* self) {
-    int list = (int)((u8*)((ISceneNode*)self)->GetAIDoodad() + 0x10);
+    int list = (int)PTR_TO_ADDR(((u8*)((ISceneNode*)self)->GetAIDoodad() + 0x10));
     BIFPop(sp);
     BIFReturn(sp, list);
 }
 
 void BIFunc_AIGetSoldierPointer(int** sp, void* self) {
-    int obj = (int)((ISceneNode*)self)->GetScriptObject();
+    int obj = (int)PTR_TO_ADDR(((ISceneNode*)self)->GetScriptObject());
     BIFPop(sp);
     BIFReturn(sp, obj);
 }
@@ -299,7 +300,7 @@ void BIFunc_AIIsItAGoodTimeToFire(int** sp, void* self) {
 }
 
 void BIFunc_AIStartAStarPathWalk(int** sp, void* self) {
-    BSObject* obj = (BSObject*)BIFArg(sp, 0);
+    BSObject* obj = ADDR_TO_PTR(BSObject, BIFArg(sp, 0));
     CAIObject* target = NULL;
     CAIObject* ai = SelfAI(self);
     target = GetAIObject(obj);
@@ -468,7 +469,7 @@ void BIFunc_AIChooseCoverPoint(int** sp, void* self) {
     int index;
     if (useThreat != 0) {
         index = CoverPointIndex(filter->m_pAIObject->ChooseCoverPoint(
-            (ECoverPointSelectionType)type, (ISceneNode*)BIFArg(sp, 2), minDist, maxDist));
+            (ECoverPointSelectionType)type, ADDR_TO_PTR(ISceneNode, BIFArg(sp, 2)), minDist, maxDist));
     } else {
         index = CoverPointIndex(
             filter->m_pAIObject->ChooseCoverPoint((ECoverPointSelectionType)type, NULL, minDist, maxDist));
@@ -487,7 +488,7 @@ void BIFunc_AISetCoverPoint(int** sp, void* self) {
 // Sets the move point to a spot `dist` away from `threat`; returns whether
 // one was found.
 void BIFunc_AISetRunAwayMovepoint(int** sp, void* self) {
-    ISceneNode* threat = (ISceneNode*)BIFArg(sp, 0);
+    ISceneNode* threat = ADDR_TO_PTR(ISceneNode, BIFArg(sp, 0));
     float dist = BIFArgF(sp, 1);
     CAIDoodad* doodad = ((ISceneNode*)self)->GetAIDoodad();
     bool found = false;
@@ -537,7 +538,7 @@ static ISceneNode* FindMountedGun(TriggerObject_struct* trigger) {
 }
 
 void BIFunc_AIFireMMGAtCurrentTarget(int** sp, void* self) {
-    BSObject* gun = (BSObject*)BIFArg(sp, 0);
+    BSObject* gun = ADDR_TO_PTR(BSObject, BIFArg(sp, 0));
     if (gun != NULL) {
         ISceneNode* node = FindMountedGun(gun->m_trigger);
         if (node != NULL) {
@@ -580,7 +581,7 @@ void BIFunc_AISetMovePoint(int** sp, void* self) {
         found = true;
         break;
     case 3: {
-        BSObject* obj = (BSObject*)BIFArg(sp, 1);
+        BSObject* obj = ADDR_TO_PTR(BSObject, BIFArg(sp, 1));
         if (obj != NULL) {
             obj->m_gameObject->GetSceneNode()->GetPosition(pos);
             found = true;
@@ -589,7 +590,7 @@ void BIFunc_AISetMovePoint(int** sp, void* self) {
     }
     case 4:
     case 5: {
-        BSObject* obj = (BSObject*)BIFArg(sp, 1);
+        BSObject* obj = ADDR_TO_PTR(BSObject, BIFArg(sp, 1));
         if (obj != NULL) {
             found = true;
             TriggerObjectData_struct* data = obj->m_trigger->m_data;
@@ -600,7 +601,7 @@ void BIFunc_AISetMovePoint(int** sp, void* self) {
         break;
     }
     case 6: {
-        TriggerObjectData_struct* data = ((BSObject*)BIFArg(sp, 1))->m_trigger->m_data;
+        TriggerObjectData_struct* data = (ADDR_TO_PTR(BSObject, BIFArg(sp, 1)))->m_trigger->m_data;
         CMatrix m;
         ((CQuaternion*)data->m_orientation)->GetMatrix(m);
         found = true;
@@ -611,11 +612,11 @@ void BIFunc_AISetMovePoint(int** sp, void* self) {
         break;
     }
     case 7:
-        ((ISceneNode*)BIFArg(sp, 1))->GetPosition(pos);
+        (ADDR_TO_PTR(ISceneNode, BIFArg(sp, 1)))->GetPosition(pos);
         found = true;
         break;
     case 8: {
-        BS_STRUCT_Vector_struct* v = (BS_STRUCT_Vector_struct*)BIFArg(sp, 1);
+        BS_STRUCT_Vector_struct* v = ADDR_TO_PTR(BS_STRUCT_Vector_struct, BIFArg(sp, 1));
         pos.x = v->x;
         pos.y = v->y;
         pos.z = v->z;
@@ -632,7 +633,7 @@ void BIFunc_AISetMovePoint(int** sp, void* self) {
         break;
     }
     case 10: {
-        BSObject* obj = (BSObject*)BIFArg(sp, 1);
+        BSObject* obj = ADDR_TO_PTR(BSObject, BIFArg(sp, 1));
         if (obj != NULL) {
             TriggerObjectData_struct* data = obj->m_trigger->m_data;
             pos.x = data->m_position[0];
@@ -854,7 +855,7 @@ void BIFunc_SetInShadow(int** sp, void* self) {
     if (self != NULL) {
         CAIFilterObject* filter = SelfFilter(self);
         if (filter != NULL) {
-            *((u8*)filter->m_pAIObject + 0x730) = on;
+            filter->m_pAIObject->m_field_0x730 = on;
         }
     }
     BIFPop(sp);
@@ -946,37 +947,37 @@ void BIFunc_SetPlayerCollision(int** sp, void*) {
 }
 
 void BIFunc_SendEventSelf(int** sp, void*) {
-    BSObjectTriggerEvent(g_pBSObject, BIFTop(sp, 1), (void*)BIFTop(sp, 0), g_pBSObject, false);
+    BSObjectTriggerEvent(g_pBSObject, BIFTop(sp, 1), ADDR_TO_PTR(void, BIFTop(sp, 0)), g_pBSObject, false);
     BIFPop(sp);
 }
 
 void BIFunc_SendEventParent(int** sp, void*) {
-    BSObjectTriggerEvent(g_pBSObject->m_trigger->m_object, BIFTop(sp, 1), (void*)BIFTop(sp, 0), g_pBSObject,
+    BSObjectTriggerEvent(g_pBSObject->m_trigger->m_object, BIFTop(sp, 1), ADDR_TO_PTR(void, BIFTop(sp, 0)), g_pBSObject,
                          false);
     BIFPop(sp);
 }
 
 void BIFunc_SendEvent(int** sp, void*) {
-    BSObject* obj = (BSObject*)BIFArg(sp, 0);
+    BSObject* obj = ADDR_TO_PTR(BSObject, BIFArg(sp, 0));
     if (obj != NULL && obj != BS_INVALID_OBJECT) {
-        BSObjectTriggerEvent(obj, BIFArg(sp, 1), (void*)BIFArg(sp, 2), g_pBSObject, false);
+        BSObjectTriggerEvent(obj, BIFArg(sp, 1), ADDR_TO_PTR(void, BIFArg(sp, 2)), g_pBSObject, false);
     }
     BIFPop(sp);
 }
 
 void BIFunc_SendEventImmediate(int** sp, void*) {
-    BSObjectTriggerEvent((BSObject*)BIFArg(sp, 0), BIFArg(sp, 1), (void*)BIFArg(sp, 2), g_pBSObject, true);
+    BSObjectTriggerEvent(ADDR_TO_PTR(BSObject, BIFArg(sp, 0)), BIFArg(sp, 1), ADDR_TO_PTR(void, BIFArg(sp, 2)), g_pBSObject, true);
     BIFPop(sp);
 }
 
 void BIFunc_SendEventDelayed(int** sp, void*) {
-    BSRegisterTimerEvent(BIFArg(sp, 0), BIFArg(sp, 2), (BSObject*)BIFArg(sp, 1), (void*)BIFArg(sp, 3),
+    BSRegisterTimerEvent(BIFArg(sp, 0), BIFArg(sp, 2), ADDR_TO_PTR(BSObject, BIFArg(sp, 1)), ADDR_TO_PTR(void, BIFArg(sp, 3)),
                          (ETimerReplaceMethod)1);
     BIFPop(sp);
 }
 
 void BIFunc_SendMessage(int** sp, void*) {
-    BSSendMessage(BIFArg(sp, 0), g_pBSObject, g_pBSObject->m_trigger, g_pBSObject, (void*)BIFArg(sp, 1));
+    BSSendMessage(BIFArg(sp, 0), g_pBSObject, g_pBSObject->m_trigger, g_pBSObject, ADDR_TO_PTR(void, BIFArg(sp, 1)));
     BIFPop(sp);
 }
 
@@ -1202,7 +1203,7 @@ void BIFunc_PlayerRespawn(int** sp, void* self) {
 static inline void PlayAnim(int** sp, CAnimObject* anim, bool locomotion, bool translate) {
     int mode = BIFArg(sp, 1);
     int id = BIFArg(sp, 0);
-    void* data = (void*)BIFArg(sp, 2);
+    void* data = ADDR_TO_PTR(void, BIFArg(sp, 2));
     anim->field_0x2458 = locomotion;
     anim->field_0x2459 = translate;
     if (anim->SetAnimationState(id, 1.0f, mode, data) == 0xFFFF0000) {
@@ -1226,7 +1227,7 @@ void BIFunc_PlayAnimationNoTranslation(int** sp, void* self) {
 }
 
 void BIFunc_PlayAnimationOnOther(int** sp, void*) {
-    ((CAnimObject*)BIFArg(sp, 3))->SetAnimationState(BIFArg(sp, 0), 1.0f, BIFArg(sp, 1), (void*)BIFArg(sp, 2));
+    (ADDR_TO_PTR(CAnimObject, BIFArg(sp, 3)))->SetAnimationState(BIFArg(sp, 0), 1.0f, BIFArg(sp, 1), ADDR_TO_PTR(void, BIFArg(sp, 2)));
     BIFPop(sp);
 }
 
@@ -1236,7 +1237,7 @@ void BIFunc_PlayFacialAnimation(int** sp, void* self) {
 }
 
 void BIFunc_RegisterTimerEvent(int** sp, void*) {
-    BSRegisterTimerEvent(BIFArg(sp, 0), BIFArg(sp, 1), g_pBSObject, (void*)BIFArg(sp, 2), (ETimerReplaceMethod)0);
+    BSRegisterTimerEvent(BIFArg(sp, 0), BIFArg(sp, 1), g_pBSObject, ADDR_TO_PTR(void, BIFArg(sp, 2)), (ETimerReplaceMethod)0);
     BIFPop(sp);
 }
 
@@ -1308,11 +1309,11 @@ void BIFunc_GetRandomFloat(int** sp, void*) {
 
 void BIFunc_GetMyInstanceData(int** sp, void*) {
     BIFPop(sp);
-    BIFReturn(sp, (int)g_pBSObject->m_gameObject->GetScriptData());
+    BIFReturn(sp, (int)PTR_TO_ADDR(g_pBSObject->m_gameObject->GetScriptData()));
 }
 
 void BIFunc_CreateChildRootHierObject(int** sp, void*) {
-    int obj = (int)CreateRootHierObject(g_pBSObject->m_trigger, BIFArg(sp, 0))->m_object;
+    int obj = (int)PTR_TO_ADDR(CreateRootHierObject(g_pBSObject->m_trigger, BIFArg(sp, 0))->m_object);
     BIFPop(sp);
     BIFReturn(sp, obj);
 }
@@ -1344,6 +1345,14 @@ void BIFunc_DestroySubHierObject(int** sp, void* self) {
     BIFPop(sp);
 }
 
+// A created game object's script object, as its first word. (MWCC puts
+// BSGO_Basic's vtable pointer after its members; natively it comes first.)
+#ifdef FRONTLINE_NATIVE
+#define GO_SCRIPT_WORD(go) ((int)PTR_TO_ADDR(((BSGO_Basic*)(go))->m_object))
+#else
+#define GO_SCRIPT_WORD(go) (*(int*)(go))
+#endif
+
 // Creates object `index` of the running object's trigger. Particle (9) and
 // light (14) creators return the object itself, others a script object.
 void BIFunc_CreateChild(int** sp, void*) {
@@ -1354,17 +1363,17 @@ void BIFunc_CreateChild(int** sp, void*) {
     switch (type) {
     case 9:
     case 14:
-        result = (int)CreateObject(trigger, index, NULL);
+        result = (int)PTR_TO_ADDR(CreateObject(trigger, index, NULL));
         break;
     case 3: {
         int* obj = (int*)CreateObject(trigger, index, NULL);
         if (obj != NULL) {
-            result = *obj;
+            result = GO_SCRIPT_WORD(obj);
         }
         break;
     }
     default:
-        result = *(int*)CreateObject(trigger, index, NULL);
+        result = GO_SCRIPT_WORD(CreateObject(trigger, index, NULL));
         break;
     }
     BIFPop(sp);
@@ -1373,7 +1382,7 @@ void BIFunc_CreateChild(int** sp, void*) {
 
 void BIFunc_DestroyObject(int** sp, void*) {
     int type = g_pBSObject->m_trigger->m_data->m_type;
-    BSObject* obj = (BSObject*)BIFArg(sp, 0);
+    BSObject* obj = ADDR_TO_PTR(BSObject, BIFArg(sp, 0));
     switch (type) {
     case 14:
         ((CLight*)obj)->MarkForDestruction(0);
@@ -1537,7 +1546,7 @@ void BIFunc_RegisterDistanceToTarget(int** sp, void* self) {
         BSObjectTriggerEvent(g_pBSObject, 0x45, NULL, g_pBSObject, true);
     }
     BIFPop(sp);
-    BIFReturn(sp, (int)rec);
+    BIFReturn(sp, (int)PTR_TO_ADDR(rec));
 }
 
 // Polls for targets in field of view (mode 2) or line of sight (3).
@@ -1548,7 +1557,7 @@ void BIFunc_RegisterTargetSearch(int** sp, void* self) {
     int mode = BIFArg(sp, 0);
     float range = BIFArgF(sp, 1);
     float fov = BIFArgF(sp, 2);
-    aistatus_match** list = (aistatus_match**)BIFArg(sp, 3);
+    aistatus_match** list = ADDR_TO_PTR(aistatus_match*, BIFArg(sp, 3));
     int count = BIFArg(sp, 4);
     filter->SetTargetMode((aifilter_target_mode)0);
     switch (mode) {
@@ -1562,7 +1571,7 @@ void BIFunc_RegisterTargetSearch(int** sp, void* self) {
     BSScheduleRegistrationRecord_struct* rec =
         g_TargetSearchSchedule.Register(g_pBSObject, event, oneShot != 0, mode, 0, 0);
     BIFPop(sp);
-    BIFReturn(sp, (int)rec);
+    BIFReturn(sp, (int)PTR_TO_ADDR(rec));
 }
 
 void BIFunc_RegisterCorpseSearch(int** sp, void* self) {
@@ -1570,7 +1579,7 @@ void BIFunc_RegisterCorpseSearch(int** sp, void* self) {
     SelfAI(self)->SetupFieldOfViewCorpse(BIFArgF(sp, 0), BIFArgF(sp, 1));
     BSScheduleRegistrationRecord_struct* rec = g_CorpseSearchSchedule.Register(g_pBSObject, event, true, 0, 0, 0);
     BIFPop(sp);
-    BIFReturn(sp, (int)rec);
+    BIFReturn(sp, (int)PTR_TO_ADDR(rec));
 }
 
 // Polls whether the AI can see/sense script object `target` (mode 2 field of
@@ -1578,7 +1587,7 @@ void BIFunc_RegisterCorpseSearch(int** sp, void* self) {
 void BIFunc_RegisterTargetCheck(int** sp, void* self) {
     BSScheduleRegistrationRecord_struct* rec = NULL;
     CAIFilterObject* filter = SelfFilter(self);
-    BSObject* target = (BSObject*)BIFArg(sp, 3);
+    BSObject* target = ADDR_TO_PTR(BSObject, BIFArg(sp, 3));
     int mode = BIFArg(sp, 0);
     float range = BIFArgF(sp, 1);
     u16 event = BIFArg(sp, 4);
@@ -1613,12 +1622,12 @@ void BIFunc_RegisterTargetCheck(int** sp, void* self) {
             filter->m_pAIObject->SetupLineOfSightModeObject(GetAIObject(target), range);
             break;
         }
-        rec = g_TargetCheckSchedule.Register(g_pBSObject, event, oneShot != 0, mode, (int)range, (int)target);
+        rec = g_TargetCheckSchedule.Register(g_pBSObject, event, oneShot != 0, mode, (int)range, (int)PTR_TO_ADDR(target));
     } else {
         BSObjectTriggerEvent(g_pBSObject, 0x45, NULL, g_pBSObject, true);
     }
     BIFPop(sp);
-    BIFReturn(sp, (int)rec);
+    BIFReturn(sp, (int)PTR_TO_ADDR(rec));
 }
 
 void BIFunc_RegisterBuddyPlayerCheck(int** sp, void* self) {
@@ -1626,12 +1635,12 @@ void BIFunc_RegisterBuddyPlayerCheck(int** sp, void* self) {
     BSScheduleRegistrationRecord_struct* rec = g_BuddyPlayerCheckSchedule.Register(
         g_pBSObject, BIFArg(sp, 3), BIFArg(sp, 4) != 0, BIFArg(sp, 0) != 0, (int)BIFArgF(sp, 1), BIFArg(sp, 2));
     BIFPop(sp);
-    BIFReturn(sp, (int)rec);
+    BIFReturn(sp, (int)PTR_TO_ADDR(rec));
 }
 
 // Stops record `rec`, or with NULL every check of the running object.
 static inline void StopCheck(int** sp, void* self, BSSchedule& schedule) {
-    BSScheduleRegistrationRecord_struct* rec = (BSScheduleRegistrationRecord_struct*)BIFArg(sp, 0);
+    BSScheduleRegistrationRecord_struct* rec = ADDR_TO_PTR(BSScheduleRegistrationRecord_struct, BIFArg(sp, 0));
     if (rec != NULL) {
         schedule.Unregister(rec);
     } else {
@@ -1653,7 +1662,7 @@ void BIFunc_StopDistanceToTarget(int** sp, void* self) {
 }
 
 void BIFunc_StopBuddyPlayerCheck(int** sp, void*) {
-    BSScheduleRegistrationRecord_struct* rec = (BSScheduleRegistrationRecord_struct*)BIFArg(sp, 0);
+    BSScheduleRegistrationRecord_struct* rec = ADDR_TO_PTR(BSScheduleRegistrationRecord_struct, BIFArg(sp, 0));
     if (rec != NULL) {
         g_BuddyPlayerCheckSchedule.Unregister(rec);
     } else {
@@ -1766,7 +1775,7 @@ static inline float FacingAngleTo(void* self, float dx, float dy) {
 // and angle queries.
 void BIFunc_GetObjInfo(int** sp, void* self) {
     CAIFilterObject* filter = NULL;
-    BSObject* obj = (BSObject*)BIFArg(sp, 1);
+    BSObject* obj = ADDR_TO_PTR(BSObject, BIFArg(sp, 1));
     int result = 0;
     BSGO_Basic* go = NULL;
     u32 info = BIFArg(sp, 0);
@@ -1778,17 +1787,17 @@ void BIFunc_GetObjInfo(int** sp, void* self) {
     CVector3 objPos;
     switch (info) {
     case 0x1:
-        result = (int)g_scene.GetPlayer(0)->GetScriptObject();
+        result = (int)PTR_TO_ADDR(g_scene.GetPlayer(0)->GetScriptObject());
         break;
     case 0x2:
-        result = (int)g_pBSObject;
+        result = (int)PTR_TO_ADDR(g_pBSObject);
         break;
     case 0x3:
         if (obj != NULL) {
             if (self != NULL) {
                 filter = SelfFilter(self);
             }
-            result = (int)filter->GetTargetScript();
+            result = (int)PTR_TO_ADDR(filter->GetTargetScript());
         }
         break;
     case 0xA:  // XY distance
@@ -2077,7 +2086,7 @@ void BIFunc_GetObjInfo(int** sp, void* self) {
             filter = SelfFilter(self);
         }
         CAIFilterRealPosition pos;
-        ((ISceneNode*)BIFArg(sp, 1))->GetPosition(objPos);
+        (ADDR_TO_PTR(ISceneNode, BIFArg(sp, 1)))->GetPosition(objPos);
         pos.field_0x0 = objPos.x;
         pos.field_0x4 = objPos.y;
         pos.field_0x8 = objPos.z;
@@ -2089,7 +2098,7 @@ void BIFunc_GetObjInfo(int** sp, void* self) {
             filter = SelfFilter(self);
         }
         CAIFilterRealPosition pos;
-        ((ISceneNode*)BIFArg(sp, 1))->GetPosition(objPos);
+        (ADDR_TO_PTR(ISceneNode, BIFArg(sp, 1)))->GetPosition(objPos);
         pos.field_0x0 = objPos.x;
         pos.field_0x4 = objPos.y;
         pos.field_0x8 = objPos.z;
@@ -2273,7 +2282,7 @@ void BIFunc_GetObjInfo(int** sp, void* self) {
         if (obj != NULL) {
             BSGO_Basic* objGo = obj->m_gameObject;
             if (objGo != NULL) {
-                result = (int)objGo->GetSceneNode();
+                result = (int)PTR_TO_ADDR(objGo->GetSceneNode());
             }
         }
         break;
@@ -2293,7 +2302,7 @@ void BIFunc_GetObjInfo(int** sp, void* self) {
 void BIFunc_SetObjInfo(int** sp, void* self) {
     bool result = false;
     int info = BIFArg(sp, 0);
-    BSObject* obj = (BSObject*)BIFArg(sp, 1);
+    BSObject* obj = ADDR_TO_PTR(BSObject, BIFArg(sp, 1));
     int value = BIFArg(sp, 2);
     switch (info) {
     case 2: {
@@ -2466,7 +2475,7 @@ void BIFunc_MakeNoiseFromInputTrigger(int** sp, void* self) {
     if (BIFArg(sp, 1) == 0) {
         type = 0x33;
     }
-    TriggerObjectData_struct* data = ((TriggerObject_struct*)BIFArg(sp, 0))->m_data;
+    TriggerObjectData_struct* data = (ADDR_TO_PTR(TriggerObject_struct, BIFArg(sp, 0)))->m_data;
     float z = data->m_position[2];
     float y = data->m_position[1];
     float x = data->m_position[0];
@@ -2583,7 +2592,7 @@ void BIFunc_StopCurrentVoice(int** sp, void* self) {
 
 // The BSP leaf the running object is in (from its proximity data).
 static inline _PropBSPLeaf* ProximityLeaf(void* data) {
-    return ((_PropBSPLeaf**)data)[3];
+    return (_PropBSPLeaf*)(const _PropBSPLeaf*)((_ProximityData*)data)->m_newLeaf;
 }
 
 // The script object of the nearest waypoint of `type` within `dist`.
@@ -2600,7 +2609,7 @@ void BIFunc_GetClosestValidWaypoint(int** sp, void*) {
         TriggerObject_struct* waypoint = g_aigAIFilterGlobalObject.GetClosestWaypointByType(
             ProximityLeaf(prox), *(CAIFilterRealPosition*)&pos, (DWI_OBJECT_CRC_ENUM)type, any == 0, dist * dist);
         if (waypoint != NULL) {
-            result = (int)waypoint->m_object;
+            result = (int)PTR_TO_ADDR(waypoint->m_object);
         } else {
             result = -1;
         }
@@ -2882,7 +2891,7 @@ int PlaySoundFromTriggerOrObject(TriggerObject_struct* trigger, BSObject* script
 
 void BIFunc_PlaySoundFromInputTrigger(int** sp, void* self) {
     CVector3 offset(0.0f, 0.0f, 0.0f);
-    int handle = PlaySoundFromTriggerOrObject((TriggerObject_struct*)BIFArg(sp, 0), g_pBSObject, self, BIFArg(sp, 1),
+    int handle = PlaySoundFromTriggerOrObject(ADDR_TO_PTR(TriggerObject_struct, BIFArg(sp, 0)), g_pBSObject, self, BIFArg(sp, 1),
                                               BIFArg(sp, 2), offset);
     BIFPop(sp);
     BIFReturn(sp, handle);
@@ -2921,7 +2930,7 @@ void BIFunc_EndSound(int** sp, void*) {
 void BIFunc_AEMSEvent(int** sp, void* self) {
     int handle = -1;
     int mode = BIFArg(sp, 0);
-    int* data = (int*)BIFArg(sp, 1);
+    int* data = ADDR_TO_PTR(int, BIFArg(sp, 1));
     int eventHandle = BIFArg(sp, 2);
     int positional = BIFArg(sp, 3);
     int event = BIFArg(sp, 4);
@@ -3020,7 +3029,7 @@ u8 g_pGenericSoundMemory[0x50];
 
 void BIFunc_GetGenericSoundStructureMemory(int** sp, void*) {
     BIFPop(sp);
-    BIFReturn(sp, (int)g_pGenericSoundMemory);
+    BIFReturn(sp, (int)PTR_TO_ADDR(g_pGenericSoundMemory));
 }
 
 void BIFunc_FloatToInt(int** sp, void*) {
@@ -3037,7 +3046,7 @@ void BIFunc_InitToInvalid(int** sp, void*) {
 
 // Keeps a particle system's position but resets its orientation.
 void BIFunc_ResetParticleSystemRotation(int** sp, void*) {
-    CParticleSystem* ps = (CParticleSystem*)BIFArg(sp, 0);
+    CParticleSystem* ps = ADDR_TO_PTR(CParticleSystem, BIFArg(sp, 0));
     if (ps != NULL) {
         CMatrix m;
         ps->GetLocalToWorld(m);
@@ -3065,7 +3074,7 @@ void BIFunc_CreateParticleSystemByType(int** sp, void* self) {
             node->AsStaticObject()->AsHierTankObject() == NULL) {
             const IVolume* vol = node->GetWorldBoundingVolume((ISceneNode::EVolumeType)3);
             if (vol != NULL) {
-                m.SetPos(*(CVector3*)((u8*)vol + 0x40));
+                m.SetPos(((const CVolBox*)vol)->m_center);
             }
         }
     } else {
@@ -3080,11 +3089,11 @@ void BIFunc_CreateParticleSystemByType(int** sp, void* self) {
         ps->SetLocalToWorld(m);
     }
     BIFPop(sp);
-    BIFReturn(sp, (int)ps);
+    BIFReturn(sp, (int)PTR_TO_ADDR(ps));
 }
 
 void BIFunc_SetParticleSystemVelocity(int** sp, void*) {
-    CParticleSystem* ps = (CParticleSystem*)BIFArg(sp, 0);
+    CParticleSystem* ps = ADDR_TO_PTR(CParticleSystem, BIFArg(sp, 0));
     if (ps != NULL) {
         CVector3 vel;
         vel.z = BIFArgF(sp, 3);
@@ -3096,7 +3105,7 @@ void BIFunc_SetParticleSystemVelocity(int** sp, void*) {
 }
 
 void BIFunc_DestroyParticleSystem(int** sp, void*) {
-    CParticleSystem* ps = (CParticleSystem*)BIFArg(sp, 0);
+    CParticleSystem* ps = ADDR_TO_PTR(CParticleSystem, BIFArg(sp, 0));
     if (ps != NULL) {
         ps->DeActivate();
     }
@@ -3124,24 +3133,24 @@ void BIFunc_CreateLightByType(int** sp, void* self) {
         light->SetTMLocalToWorld(m);
     }
     BIFPop(sp);
-    BIFReturn(sp, (int)light);
+    BIFReturn(sp, (int)PTR_TO_ADDR(light));
 }
 
 void BIFunc_DestroyLight(int** sp, void*) {
-    ((CLight*)BIFArg(sp, 0))->MarkForDestruction(0);
+    (ADDR_TO_PTR(CLight, BIFArg(sp, 0)))->MarkForDestruction(0);
     BIFPop(sp);
 }
 
 void BIFunc_GetEventSystemMemBlock(int** sp, void*) {
     void* block = BSEventGetEventMemoryBlock(0x20);
     BIFPop(sp);
-    BIFReturn(sp, (int)block);
+    BIFReturn(sp, (int)PTR_TO_ADDR(block));
 }
 
 void BIFunc_GetEmbeddedHitReactionInfo(int** sp, void*) {
     void* info = g_pBSObject->m_gameObject->GetEmbeddedHitReactionInfo();
     BIFPop(sp);
-    BIFReturn(sp, (int)info);
+    BIFReturn(sp, (int)PTR_TO_ADDR(info));
 }
 
 int g_iHighestObjectiveNumber;
@@ -3280,7 +3289,7 @@ void BIFunc_GetWayPointInfo(int** sp, void* self) {
         waypoint = g_pTriggerObjects[arg].m_data;
         break;
     case 1:
-        waypoint = ((BSObject*)arg)->m_trigger->m_data;
+        waypoint = (ADDR_TO_PTR(BSObject, arg))->m_trigger->m_data;
         break;
     }
     switch (info) {
@@ -3369,7 +3378,7 @@ void BIFunc_GetWayPointInfo(int** sp, void* self) {
         }
         break;
     case 7:
-        result.i = IsMGUsed(((BSObject*)arg)->m_trigger);
+        result.i = IsMGUsed((ADDR_TO_PTR(BSObject, arg))->m_trigger);
         break;
     case 8:
         if (waypoint != NULL) {
@@ -3619,7 +3628,7 @@ void BIFunc_SetGrenadeSlot(int** sp, void* self) {
 }
 
 void BIFunc_CatchGrenade(int** sp, void*) {
-    ((CThrownBullet*)BIFArg(sp, 0))->SomebodyCaughtYou();
+    (ADDR_TO_PTR(CThrownBullet, BIFArg(sp, 0)))->SomebodyCaughtYou();
     BIFPop(sp);
 }
 
@@ -3627,13 +3636,13 @@ void BIFunc_CatchGrenade(int** sp, void*) {
 // the original does).
 void BIFunc_GetGrenadeTimer(int** sp, void*) {
     int* top = *sp;
-    int timer = ((CThrownBullet*)BIFArg(sp, 0))->field_0x90;
+    int timer = (ADDR_TO_PTR(CThrownBullet, BIFArg(sp, 0)))->field_0x90;
     *top = timer;
     BIFPop(sp);
 }
 
 void BIFunc_SetGrenadeTimer(int** sp, void*) {
-    ((CThrownBullet*)BIFArg(sp, 0))->field_0x90 = BIFArg(sp, 1);
+    (ADDR_TO_PTR(CThrownBullet, BIFArg(sp, 0)))->field_0x90 = BIFArg(sp, 1);
     BIFPop(sp);
 }
 
@@ -3845,8 +3854,8 @@ void BIFunc_FireProjectile(int** sp, void* self) {
     int bulletType = 0;
     float spread = BIFArgF(sp, 1);
     bool projectile = true;
-    BSObject* from = (BSObject*)BIFArg(sp, 2);
-    BSObject* to = (BSObject*)BIFArg(sp, 3);
+    BSObject* from = ADDR_TO_PTR(BSObject, BIFArg(sp, 2));
+    BSObject* to = ADDR_TO_PTR(BSObject, BIFArg(sp, 3));
     int attach = BIFArg(sp, 4);
     int index = 0;
     WeaponProperties_struct* props =
@@ -3859,9 +3868,9 @@ void BIFunc_FireProjectile(int** sp, void* self) {
     CVector3 start;
     if (from != NULL && from->m_gameObject != NULL && from->m_gameObject->GetSceneNode() != NULL) {
         if (attach != 0) {
-            u8* model = *(u8**)((u8*)from->m_gameObject->GetSceneNode()->AsStaticObject()->m_pMesh + 4);
-            u8* point = *(u8**)(model + 0x28);
-            int count = *(int*)(model + 0x2C);
+            StaticMesh* model = from->m_gameObject->GetSceneNode()->AsStaticObject()->m_pMesh->m_pData;
+            u8* point = (u8*)model->m_hardPoints;
+            int count = model->m_numHardPoints;
             for (int i = 0; i < count; i++) {
                 if (*(int*)(point + 0x40) == attach) {
                     break;
@@ -3923,9 +3932,9 @@ void BIFunc_FireProjectile(int** sp, void* self) {
 
 // Attaches `obj` (or self) to prop `prop` at attachment `point`.
 void BIFunc_AttachToProp(int** sp, void* self) {
-    BSObject* obj = (BSObject*)BIFArg(sp, 0);
+    BSObject* obj = ADDR_TO_PTR(BSObject, BIFArg(sp, 0));
     int point = BIFArg(sp, 1);
-    BSObject* propObj = (BSObject*)BIFArg(sp, 3);
+    BSObject* propObj = ADDR_TO_PTR(BSObject, BIFArg(sp, 3));
     bool flag = BIFArg(sp, 2) != 0;
     ISceneNode* node;
     if (obj != NULL) {
@@ -3947,8 +3956,8 @@ void BIFunc_AttachToProp(int** sp, void* self) {
 
 // Moves `obj` (or self) to waypoint `waypoint` and holds it there.
 void BIFunc_AttachToWaypoint(int** sp, void* self) {
-    BSObject* obj = (BSObject*)BIFArg(sp, 0);
-    BSObject* waypoint = (BSObject*)BIFArg(sp, 1);
+    BSObject* obj = ADDR_TO_PTR(BSObject, BIFArg(sp, 0));
+    BSObject* waypoint = ADDR_TO_PTR(BSObject, BIFArg(sp, 1));
     ISceneNode* node;
     if (obj != NULL) {
         node = obj->m_gameObject->GetSceneNode();
@@ -3971,7 +3980,7 @@ void BIFunc_AttachToWaypoint(int** sp, void* self) {
 }
 
 void BIFunc_DetachFromWaypoint(int** sp, void* self) {
-    BSObject* obj = (BSObject*)BIFArg(sp, 0);
+    BSObject* obj = ADDR_TO_PTR(BSObject, BIFArg(sp, 0));
     ISceneNode* node;
     if (obj != NULL) {
         node = obj->m_gameObject->GetSceneNode();
@@ -3987,7 +3996,7 @@ void BIFunc_DetachFromWaypoint(int** sp, void* self) {
 }
 
 void BIFunc_AttachPlayerToProp(int** sp, void*) {
-    BSObject* propObj = (BSObject*)BIFArg(sp, 2);
+    BSObject* propObj = ADDR_TO_PTR(BSObject, BIFArg(sp, 2));
     int point = BIFArg(sp, 0);
     bool flag = BIFArg(sp, 1) != 0;
     if (propObj == NULL) {
@@ -3999,8 +4008,8 @@ void BIFunc_AttachPlayerToProp(int** sp, void*) {
 }
 
 void BIFunc_DetachFromProp(int** sp, void* self) {
-    BSObject* obj = (BSObject*)BIFArg(sp, 0);
-    CAttachableObject* prop = (CAttachableObject*)((BSObject*)BIFArg(sp, 1))->m_gameObject->GetSceneNode();
+    BSObject* obj = ADDR_TO_PTR(BSObject, BIFArg(sp, 0));
+    CAttachableObject* prop = (CAttachableObject*)(ADDR_TO_PTR(BSObject, BIFArg(sp, 1)))->m_gameObject->GetSceneNode();
     ISceneNode* node;
     if (obj != NULL) {
         node = obj->m_gameObject->GetSceneNode();
@@ -4012,7 +4021,7 @@ void BIFunc_DetachFromProp(int** sp, void* self) {
 }
 
 void BIFunc_DetachPlayerFromProp(int** sp, void*) {
-    BSObject* propObj = (BSObject*)BIFArg(sp, 0);
+    BSObject* propObj = ADDR_TO_PTR(BSObject, BIFArg(sp, 0));
     if (propObj == NULL) {
         propObj = g_pBSObject;
     }
@@ -4026,7 +4035,7 @@ void BIFunc_DetachPlayerFromProp(int** sp, void*) {
 void BIFunc_AttachToSoldier(int** sp, void* self) {
     int hand = BIFArg(sp, 1);
     int arg = BIFArg(sp, 2);
-    CStaticObject* obj = (CStaticObject*)((BSObject*)BIFArg(sp, 0))->m_gameObject->GetSceneNode();
+    CStaticObject* obj = (CStaticObject*)(ADDR_TO_PTR(BSObject, BIFArg(sp, 0)))->m_gameObject->GetSceneNode();
     switch (hand) {
     case 0:
         ((CSoldierObject*)self)->AttachObject(obj, "lt_hand", arg);
@@ -4043,7 +4052,7 @@ void BIFunc_AttachToSoldier(int** sp, void* self) {
 // hand (1 right, 0 left) or -1.
 void BIFunc_AttachToSoldierEmptyHand(int** sp, void* self) {
     int result = -1;
-    BSObject* obj = (BSObject*)BIFArg(sp, 0);
+    BSObject* obj = ADDR_TO_PTR(BSObject, BIFArg(sp, 0));
     int arg = BIFArg(sp, 1);
     CStaticObject* prop = (CStaticObject*)obj->m_gameObject->GetSceneNode();
     if (!g_scene.IsNodeInScene(prop)) {
@@ -4095,7 +4104,7 @@ void BIFunc_DetachFromSoldier(int** sp, void* self) {
 
 // The nearest box or tank prop (other than `near`) with prop id `id`.
 void BIFunc_GetPropById(int** sp, void*) {
-    BSObject* near = (BSObject*)BIFArg(sp, 1);
+    BSObject* near = ADDR_TO_PTR(BSObject, BIFArg(sp, 1));
     int id = BIFArg(sp, 0);
     if (near == NULL) {
         near = g_pBSObject;
@@ -4152,7 +4161,7 @@ void BIFunc_GetPropById(int** sp, void*) {
         }
     }
     BIFPop(sp);
-    BIFReturn(sp, (int)best);
+    BIFReturn(sp, (int)PTR_TO_ADDR(best));
 }
 
 // Mood presets: an expression (some random), a jaw motion and blinking.
@@ -4433,7 +4442,7 @@ static inline void SwitchSoldierWeapon(CSoldierObject* soldier, int index, int h
 // Gives the soldier the grenade the script picked up (`grenade`'s bullet
 // type 24 is the other grenade model) in slot 3 and switches to it.
 void BIFunc_GiveEnemyGrenadeWeapon(int** sp, void* self) {
-    CBullet* grenade = (CBullet*)BIFArg(sp, 0);
+    CBullet* grenade = ADDR_TO_PTR(CBullet, BIFArg(sp, 0));
     int crc;
     switch (grenade->GetScriptBulletType()) {
     case 3:
@@ -4462,7 +4471,7 @@ void BIFunc_FireProjectileAtPath(int** sp, void* self) {
     float speed = 5.0f;
     int bulletType = 0;
     float spread = BIFArgF(sp, 1);
-    BSObject* from = (BSObject*)BIFArg(sp, 2);
+    BSObject* from = ADDR_TO_PTR(BSObject, BIFArg(sp, 2));
     bool projectile = true;
     u32 pathId = BIFArg(sp, 3);
     float t = BIFArgF(sp, 4);
@@ -4478,9 +4487,9 @@ void BIFunc_FireProjectileAtPath(int** sp, void* self) {
     CVector3 start;
     if (from != NULL && from->m_gameObject != NULL && from->m_gameObject->GetSceneNode() != NULL) {
         if (attach != 0) {
-            u8* model = *(u8**)((u8*)from->m_gameObject->GetSceneNode()->AsStaticObject()->m_pMesh + 4);
-            u8* point = *(u8**)(model + 0x28);
-            int count = *(int*)(model + 0x2C);
+            StaticMesh* model = from->m_gameObject->GetSceneNode()->AsStaticObject()->m_pMesh->m_pData;
+            u8* point = (u8*)model->m_hardPoints;
+            int count = model->m_numHardPoints;
             for (int i = 0; i < count; i++) {
                 if (*(int*)(point + 0x40) == attach) {
                     break;
@@ -4588,7 +4597,7 @@ static inline void PromptPlayer(const char* text, int player) {
 // kill, suicide or kill messages, with the weapon when known).
 void BIFunc_UpdateFragCount(int** sp, void*) {
     char text[128];
-    BSObject* killerObj = (BSObject*)BIFArg(sp, 0);
+    BSObject* killerObj = ADDR_TO_PTR(BSObject, BIFArg(sp, 0));
     int bulletType = BIFArg(sp, 1);
     if (g_bInMultiplayerMode) {
         if (killerObj == NULL) {
@@ -4733,7 +4742,7 @@ void BIFunc_ScaleRel(int** sp, void* self) {
 // `gun`.
 void BIFunc_AttachPlayerToMountedMachineGun(int** sp, void* self) {
     int on = BIFArg(sp, 1);
-    ISceneNode* gun = FindMountedGun(((BSObject*)BIFArg(sp, 0))->m_trigger);
+    ISceneNode* gun = FindMountedGun((ADDR_TO_PTR(BSObject, BIFArg(sp, 0)))->m_trigger);
     ((ISceneNode*)self)->AsPlayerObject()->SetUsingMountedMachineGun(on != 0, (CStaticObject*)gun);
     BIFPop(sp);
 }
@@ -4744,7 +4753,7 @@ void BIFunc_GetBSObject(int** sp, void*) {
     int obj = 0;
     if (BIFArg(sp, 1) != 0) {
     } else {
-        obj = (int)((ISceneNode*)BIFArg(sp, 0))->GetScriptObject();
+        obj = (int)PTR_TO_ADDR((ADDR_TO_PTR(ISceneNode, BIFArg(sp, 0)))->GetScriptObject());
     }
     BIFReturn(sp, obj);
     BIFPop(sp);
@@ -4772,7 +4781,7 @@ void BIFunc_PlayerForceToWeapon(int** sp, void* self) {
 // by default, mode 4: with a random lift).
 void BIFunc_ApplyForceToObject(int** sp, void* self) {
     int mode = BIFTop(sp, 2);
-    IMovingSceneNode* obj = (IMovingSceneNode*)BIFTop(sp, 1);
+    IMovingSceneNode* obj = ADDR_TO_PTR(IMovingSceneNode, BIFTop(sp, 1));
     float force = *(float*)&BIFTop(sp, 0);
     CVector3 dir;
     ((ISceneNode*)self)->GetForward(dir);
@@ -4826,7 +4835,7 @@ void BIFunc_MechFollowPath(int** sp, void* self) {
     int accel = BIFArg(sp, 4) + 1;
     mech->SetMovementPath(BIFArg(sp, 0), BIFArg(sp, 1) != 0, BIFArg(sp, 2) != 0, 0.016683351f * speed,
                           0.001f * (accel * accel), 0.017453292f * (0.016683351f * BIFArgF(sp, 5)),
-                          0.017453292f * (0.016683351f * BIFArgF(sp, 6)), (BSObject*)BIFArg(sp, 7),
+                          0.017453292f * (0.016683351f * BIFArgF(sp, 6)), ADDR_TO_PTR(BSObject, BIFArg(sp, 7)),
                           BIFArg(sp, 8), keepSpeed);
     BIFPop(sp);
 }
@@ -4895,7 +4904,7 @@ void BIFunc_AttachObjectToFloatingBone(int** sp, void* self) {
     char* bone = NULL;
     int hand = BIFArg(sp, 1);
     int flags = BIFArg(sp, 2);
-    ISceneNode* gun = FindMountedGun(((BSObject*)BIFArg(sp, 0))->m_trigger);
+    ISceneNode* gun = FindMountedGun((ADDR_TO_PTR(BSObject, BIFArg(sp, 0)))->m_trigger);
     switch (hand) {
     case 0:
         bone = "lt_hand";
@@ -4925,7 +4934,7 @@ void BIFunc_DisableFloatingBone(int** sp, void* self) {
 
 // Seconds until grenade `arg0` goes off.
 void BIFunc_SetDetonationTime(int** sp, void*) {
-    ((CThrownBullet*)BIFArg(sp, 0))->SetDetonationTime(60.0f * BIFArgF(sp, 1));
+    (ADDR_TO_PTR(CThrownBullet, BIFArg(sp, 0)))->SetDetonationTime(60.0f * BIFArgF(sp, 1));
     BIFPop(sp);
 }
 
@@ -5117,7 +5126,7 @@ struct BSHitInfo {
 // Health `arg2` less the damage of hit `arg0` if it hit sub-object `arg1`
 // (scaled by the running hier object's multiplier for the bullet's class).
 void BIFunc_DoDamageIfLocationMatches(int** sp, void* self) {
-    BSHitInfo* hit = (BSHitInfo*)BIFArg(sp, 0);
+    BSHitInfo* hit = ADDR_TO_PTR(BSHitInfo, BIFArg(sp, 0));
     int sub = BIFArg(sp, 1);
     int health = BIFArg(sp, 2);
     if (hit->m_subObject == sub) {
@@ -5194,11 +5203,11 @@ void BIFunc_SetHeadTrackPlayer(int** sp, void* self) {
 void BIFunc_GetMySoundInfoStruct(int** sp, void* self) {
     CSoldierSoundInfo* info = &((ISceneNode*)self)->AsSoldierObject()->m_soundInfo;
     BIFPop(sp);
-    BIFReturn(sp, (int)info);
+    BIFReturn(sp, (int)PTR_TO_ADDR(info));
 }
 
 void BIFunc_SetMySoundInfoStruct(int** sp, void* self) {
-    CSoldierSoundInfo* info = (CSoldierSoundInfo*)BIFArg(sp, 0);
+    CSoldierSoundInfo* info = ADDR_TO_PTR(CSoldierSoundInfo, BIFArg(sp, 0));
     CSoldierObject* soldier = ((ISceneNode*)self)->AsSoldierObject();
     soldier->m_soundInfo.field_0x0 = info->field_0x0;
     soldier->m_soundInfo.field_0x4 = info->field_0x4;
@@ -5215,7 +5224,7 @@ void BIFunc_SetMySoundInfoStruct(int** sp, void* self) {
 // `arg1`.
 void BIFunc_GetNoiseInfo(int** sp, void* self) {
     float result = 0.0f;
-    BS_STRUCT_Vector_struct* point = (BS_STRUCT_Vector_struct*)BIFArg(sp, 1);
+    BS_STRUCT_Vector_struct* point = ADDR_TO_PTR(BS_STRUCT_Vector_struct, BIFArg(sp, 1));
     if (BIFArg(sp, 0) == 1) {
         CVector3 pos;
         CVector3 right;
@@ -5243,12 +5252,12 @@ void BIFunc_RegisterMMGCheck(int** sp, void*) {
     BSScheduleRegistrationRecord_struct* rec =
         g_MMGPointCheckSchedule.Register(g_pBSObject, 0x102, true, BIFArg(sp, 0), 0, 0);
     BIFPop(sp);
-    BIFReturn(sp, (int)rec);
+    BIFReturn(sp, (int)PTR_TO_ADDR(rec));
 }
 
 // (With NULL the original unregisters from the buddy schedule.)
 void BIFunc_StopMMGCheck(int** sp, void* self) {
-    BSScheduleRegistrationRecord_struct* rec = (BSScheduleRegistrationRecord_struct*)BIFArg(sp, 0);
+    BSScheduleRegistrationRecord_struct* rec = ADDR_TO_PTR(BSScheduleRegistrationRecord_struct, BIFArg(sp, 0));
     if (rec != NULL) {
         g_MMGPointCheckSchedule.Unregister(rec);
     } else {
@@ -5259,14 +5268,14 @@ void BIFunc_StopMMGCheck(int** sp, void* self) {
 
 void BIFunc_AIChooseMMGPoint(int** sp, void* self) {
     int point = 0;
-    point = (int)SelfFilter(self)->ChooseMMGPoint();
+    point = (int)PTR_TO_ADDR(SelfFilter(self)->ChooseMMGPoint());
     BIFPop(sp);
     BIFReturn(sp, point);
 }
 
 // Puts mounted gun `arg0` back where the level placed it.
 void BIFunc_ResetMMG(int** sp, void*) {
-    BSObject* obj = (BSObject*)BIFArg(sp, 0);
+    BSObject* obj = ADDR_TO_PTR(BSObject, BIFArg(sp, 0));
     if (obj != NULL) {
         CStaticObject* gun = (CStaticObject*)FindMountedGun(obj->m_trigger);
         CMatrix m;
@@ -5303,7 +5312,7 @@ static inline int MPAmmoCRC(int id) {
 static inline int CreateMPPickup(int crc) {
     g_pBSObject->m_trigger->m_data->field_0x48 = crc;
     TriggerObject_struct* trigger = g_pBSObject->m_trigger;
-    return *(int*)CreateObject(trigger, trigger->m_data->field_0x50, NULL);
+    return GO_SCRIPT_WORD(CreateObject(trigger, trigger->m_data->field_0x50, NULL));
 }
 
 void BIFunc_MPCreateWeaponByWeaponSetID(int** sp, void*) {
@@ -5334,7 +5343,7 @@ void BIFunc_MPCreateWeaponByType(int** sp, void*) {
     int result = 0;
     for (int i = 0; i < count; i++) {
         if (data->field_0x48 == MPWeaponCRC(i + 1)) {
-            result = *(int*)CreateObject(trigger, data->field_0x50, NULL);
+            result = GO_SCRIPT_WORD(CreateObject(trigger, data->field_0x50, NULL));
             break;
         }
     }
@@ -5349,7 +5358,7 @@ void BIFunc_MPCreateAmmoByType(int** sp, void*) {
     int result = 0;
     for (int i = 0; i < count; i++) {
         if (data->field_0x48 == MPAmmoCRC(i + 1)) {
-            result = *(int*)CreateObject(trigger, data->field_0x50, NULL);
+            result = GO_SCRIPT_WORD(CreateObject(trigger, data->field_0x50, NULL));
             break;
         }
     }
@@ -5381,7 +5390,7 @@ void BIFunc_MPGetWeaponTypeFromWeaponSetID(int** sp, void*) {
 
 // Player `arg0` picks up the running trigger's ammo (amount `arg1`).
 void BIFunc_MPAddPlayerAmmo(int** sp, void*) {
-    BSObject* obj = (BSObject*)BIFArg(sp, 0);
+    BSObject* obj = ADDR_TO_PTR(BSObject, BIFArg(sp, 0));
     int amount = BIFArg(sp, 1);
     bool taken = obj->m_gameObject->GetSceneNode()->AsPlayerObject()->AddAmmoOrWeapon(
         g_pBSObject->m_trigger->m_data->field_0x48, amount, NULL);
@@ -5392,7 +5401,7 @@ void BIFunc_MPAddPlayerAmmo(int** sp, void*) {
 // Player `arg0` picks up the running trigger's health (amount `arg1`) and
 // is told which kind it was.
 void BIFunc_MPAddPlayerHealth(int** sp, void*) {
-    BSObject* obj = (BSObject*)BIFArg(sp, 0);
+    BSObject* obj = ADDR_TO_PTR(BSObject, BIFArg(sp, 0));
     int amount = BIFArg(sp, 1);
     CPlayerObject* player = obj->m_gameObject->GetSceneNode()->AsPlayerObject();
     bool taken = player->AddHealth(g_pBSObject->m_trigger->m_data->field_0x48, amount, NULL);
@@ -5421,7 +5430,7 @@ void BIFunc_MPAddPlayerHealth(int** sp, void*) {
 void BIFunc_MPGetPlayerBody(int** sp, void*) {
     CPlayerObject* player = g_pBSObject->m_gameObject->GetSceneNode()->AsPlayerObject();
     BIFPop(sp);
-    BIFReturn(sp, (int)player->m_pBody);
+    BIFReturn(sp, (int)PTR_TO_ADDR(player->m_pBody));
 }
 
 void BIFunc_MPGetPlayerVelocity(int** sp, void*) {
@@ -5448,7 +5457,7 @@ bool DoMMGPointCheck(BSObject* obj, int gun, int, int, int*, int* delay) {
     }
     CAIFilterObject* filter = ScheduledFilter(obj);
     *delay = 0;
-    return filter->ShouldILeaveMMG((BSObject*)gun);
+    return filter->ShouldILeaveMMG(ADDR_TO_PTR(BSObject, gun));
 }
 
 // Fires with the distance to the target when the squared distance leaves
@@ -5507,7 +5516,7 @@ bool DoTargetSearch(BSObject* obj, int mode, int, int, int* data, int* delay) {
         return false;
     }
     *delay = (int)MathFunRandomI64(1, 9) * obj->m_trigger->m_data->field_0x79;
-    *data = (int)found;
+    *data = (int)PTR_TO_ADDR(found);
     return true;
 }
 
@@ -5520,7 +5529,7 @@ bool DoTargetCheck(BSObject* obj, int mode, int range, int other, int*, int* del
     CAIFilterObject* filter = node->GetAIDoodad()->m_pFilter;
     switch (mode) {
     case 1: {
-        ISceneNode* otherNode = ((BSObject*)other)->m_gameObject->GetSceneNode();
+        ISceneNode* otherNode = (ADDR_TO_PTR(BSObject, other))->m_gameObject->GetSceneNode();
         if (otherNode != NULL) {
             CVector3 otherPos;
             otherNode->GetPosition(otherPos);
@@ -5571,7 +5580,7 @@ bool DoCorpseSearch(BSObject* obj, int, int, int, int* data, int* delay) {
         return false;
     }
     *delay = 0;
-    *data = (int)found;
+    *data = (int)PTR_TO_ADDR(found);
     return true;
 }
 
@@ -5580,7 +5589,7 @@ bool DoCorpseSearch(BSObject* obj, int, int, int, int* data, int* delay) {
 bool DoBuddyPlayerCheck(BSObject* obj, int lost, int range, int other, int*, int* delay) {
     CAIFilterObject* filter = ScheduledFilter(obj);
     CAIFilterRealPosition pos;
-    ((BSObject*)other)->m_gameObject->GetSceneNode()->GetPosition(*(CVector3*)&pos);
+    (ADDR_TO_PTR(BSObject, other))->m_gameObject->GetSceneNode()->GetPosition(*(CVector3*)&pos);
     *delay = 0;
     if (lost != 0) {
         return !filter->m_pAIObject->IsObjectInLineOfSight(pos, range, false);
@@ -5665,7 +5674,7 @@ int DisplayHint() {
         objective = 20;
     }
     const char** hints = g_HintTextArray[objective - 1];
-    int next = (int)hints[2];
+    int next = (int)PTR_TO_ADDR(hints[2]);
     if (hints[next] != NULL) {
         DisplayHintText(hints[next]);
         do {
@@ -5674,7 +5683,7 @@ int DisplayHint() {
                 next -= 2;
             }
         } while (hints[next] == NULL);
-        hints[2] = (const char*)next;
+        hints[2] = ADDR_TO_PTR(const char, next);
     } else {
         DisplayHintText(GetUMString(UM_NO_HINT));
     }
@@ -5730,7 +5739,7 @@ void CAnimObject::SetCollisionId(EClsnId id) {
 
 // (The AI doodads are embedded in the objects.)
 CAIDoodad* CPlayerObject::GetAIDoodad() {
-    return (CAIDoodad*)((u8*)this + 0x24);
+    return (CAIDoodad*)&m_aiDoodad;
 }
 
 void CPlayerObject::SetCollisionId(EClsnId id) {
@@ -5771,7 +5780,7 @@ extern BIFCRCEntry g_BIFCRCArray[BIF_CRC_COUNT];
 static inline BIFDataHeader* LoadBIFData() {
     TLT_FindNextResourceByType((TLTResourceID)0xB, NULL);
     BIFDataHeader* header = (BIFDataHeader*)TLT_LoadFileFromLevelBigFile(
-        (const char*)TLT_FindNextResourceByType((TLTResourceID)1, NULL)->fields[0].value, NULL);
+        ADDR_TO_PTR(const char, TLT_FindNextResourceByType((TLTResourceID)1, NULL)->fields[0].value), NULL);
     EndianSwap(header->m_version);
     EndianSwap(header->m_checksum);
     EndianSwap(header->m_numFunctions);
@@ -5812,8 +5821,8 @@ int BSInitBIFuncs() {
         DebugMsg("  engine checksum = %d.  file checksum = %d\n", BIF_CHECKSUM, header->m_checksum);
         DebugMsg("  Scripts need to be rebuilt or the engine needs to be built with a new bsstruct.h\n");
     }
-    header->m_functions = (u32)header + header->m_functions;
-    g_pBuiltInFunctions = (BSBuiltInFunction_struct*)header->m_functions;
+    header->m_functions = (u32)PTR_TO_ADDR(header) + header->m_functions;
+    g_pBuiltInFunctions = ADDR_TO_PTR(BSBuiltInFunction_struct, header->m_functions);
     g_pNumBuiltInFunctions = header->m_numFunctions;
     int i;
     for (i = 0; i < header->m_numFunctions; i++) {

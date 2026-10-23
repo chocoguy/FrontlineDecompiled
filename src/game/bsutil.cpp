@@ -40,7 +40,7 @@ static inline int Align16(int size) {
 void BSUtilPreLoadScriptCallback(LevelFileContentsStruct_* res) {
     BSClass_struct* cls;
     char name[0x50];
-    strcpy(name, (const char*)res->fields[0].value);
+    strcpy(name, ADDR_TO_PTR(const char, res->fields[0].value));
     name[strlen(name) - 4] = 0;  // drop the extension
     BSFileGetClass(name, &cls);
 }
@@ -174,8 +174,8 @@ void BSUtilInitScriptingSystem(bool reset) {
     if (!reset) {
         TLT_InitResourceType(BSUtilPreLoadScriptCallback, (TLTResourceID)7);
     }
-    char* properties = (char*)TLT_FindNextResourceByType((TLTResourceID)5, NULL)->fields[0].value;
-    LoadPropBSPTree((char*)TLT_FindNextResourceByType((TLTResourceID)4, NULL)->fields[0].value, reset);
+    char* properties = ADDR_TO_PTR(char, TLT_FindNextResourceByType((TLTResourceID)5, NULL)->fields[0].value);
+    LoadPropBSPTree(ADDR_TO_PTR(char, TLT_FindNextResourceByType((TLTResourceID)4, NULL)->fields[0].value), reset);
     LoadPropertyData(properties, reset);
 }
 
@@ -189,7 +189,7 @@ bool BSUtilObjectInstanceMemoryAllocator::DoWeOwnThisMemory(void* memory) {
 }
 
 void BSUtilObjectInstanceMemoryAllocator::FreeElement(void* element) {
-    ((u32**)element)[m_elementWords] = m_free;
+    ((u32*)element)[m_elementWords] = (u32)PTR_TO_ADDR(m_free);  // the link word is an address
     m_free = (u32*)element;
     m_numUsed--;
 }
@@ -197,7 +197,7 @@ void BSUtilObjectInstanceMemoryAllocator::FreeElement(void* element) {
 void* BSUtilObjectInstanceMemoryAllocator::GetFreeElement(bool) {
     if (m_numUsed < m_maxElements) {
         u32* element = m_free;
-        m_free = ((u32**)element)[m_elementWords];
+        m_free = ADDR_TO_PTR(u32, ((u32*)element)[m_elementWords]);
         m_numUsed++;
         return element;
     }
@@ -227,7 +227,7 @@ void BSUtilObjectInstanceMemoryAllocator::Init(void* memory, int elementSize, in
     int words = m_elementWords;
     u32* link = m_base + words;
     for (int i = 0; i < m_maxElements - 1; i++) {
-        *link = (u32)(link + (m_strideWords - words));
+        *link = (u32)PTR_TO_ADDR((link + (m_strideWords - words)));
         link += m_strideWords;
     }
     *link = 0;

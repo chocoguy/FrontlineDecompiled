@@ -92,7 +92,7 @@ int CCSGVolume::CheckContacts(int* hits, float* fractions, CCollision* collision
                         contact.m_depth = first->m_depth;
                         contact.m_normal.Copy(first->m_normal);
                         contact.m_point.Copy(first->m_point);
-                        contact.m_pPoly = (const SClsnPoly*)index;
+                        contact.m_pPoly = ADDR_TO_PTR(const SClsnPoly, index);
                         collision.AddContact(contact);
                     }
                 }
@@ -154,7 +154,7 @@ int CCSGVolume::TestCollision(const CCSGVolume& volume, CCollision& collision, b
 }
 
 int CCSGVolume::Create() const {
-    return (int)new CCSGVolume;
+    return (int)PTR_TO_ADDR(new CCSGVolume);
 }
 
 void CCSGVolume::GetExtents(CVector3& min, CVector3& max) const {

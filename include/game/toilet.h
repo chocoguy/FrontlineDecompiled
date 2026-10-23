@@ -27,8 +27,9 @@ struct TLTResourceField {
 struct LevelFileContentsStruct_ {
     /* 0x0 */ TLTResourceID type;
     /* 0x4 */ int numFields;
-    /* 0x8 */ TLTResourceField* fields;
+    /* 0x8 */ PTR32(TLTResourceField) fields;
 };
+FILE_SIZE_ASSERT(LevelFileContentsStruct_, 0xC);
 
 // Header of levelfile.lfc. Every word is byte-swapped on load.
 struct TLTLevelContentsHeader {

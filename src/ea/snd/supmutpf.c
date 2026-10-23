@@ -28,7 +28,7 @@ int SFILTER_unpackmtpf(void* self, int frames, void* in, void* out, int flag) {
     }
     while (frames > 0) {
         if (s->pos >= s->len) {
-            s->data = (u8*)SNDPKTPLAYI_get(s->player, s->chan, &s->len, &unused);
+            s->data = ADDR_TO_PTR(u8, SNDPKTPLAYI_get(s->player, s->chan, &s->len, &unused));
             s->pos = 0;
             if (s->data == NULL) {
                 if (s->done != 0) {

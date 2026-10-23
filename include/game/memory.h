@@ -13,6 +13,10 @@ void operator delete(void* ptr);                     // 0x8001CA2C
 void* operator new[](unsigned long size, char* name); // 0x8001CA70
 void* operator new[](unsigned long size);            // 0x8001CAE8
 void* operator new(unsigned long size);              // 0x8001CB60
+#ifdef FRONTLINE_NATIVE
+#include <new>  // the standard placement new
+#else
 inline void* operator new(unsigned long, void* where) { return where; }  // placement (inlined)
+#endif
 
 #endif

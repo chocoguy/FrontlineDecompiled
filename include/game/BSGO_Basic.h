@@ -28,4 +28,8 @@ public:
     virtual void* GetEmbeddedHitReactionInfo();  // 0x800290A8
 };
 
+// Every subclass starts with its script data ([0] is the health), right after
+// BSGO_Basic.
+#define BSGO_SCRIPT_DATA(go) ((int*)((u8*)(go) + GC_SIZE(0x10, sizeof(BSGO_Basic))))
+
 #endif

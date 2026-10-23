@@ -64,6 +64,7 @@ int CHearingVolume::BeginUpdate(float) {
         m_pOwner->GetTMLocalToWorld(m_tm);
         m_lastPos = *(const CVector3*)m_tm.m[3];
     }
+    END_RETURN_NOTHING
 }
 
 int CHearingVolume::AttemptUpdate(float dt) {
@@ -81,14 +82,16 @@ int CHearingVolume::AttemptUpdate(float dt) {
     CVector3 max;
     m_worldSphere.GetExtents(min, max);
     SetExtents(min, max);
+    END_RETURN_NOTHING
 }
 
-int CBullet::Penetrate(const CCollision&) {}
+int CBullet::Penetrate(const CCollision&) { END_RETURN_NOTHING }
 
 void CBullet::SetExclusionPair(ISceneNode*) {}
 
 int CHearingVolume::CommitUpdate() {
     m_lastPos = *(const CVector3*)m_tm.m[3];
+    END_RETURN_NOTHING
 }
 
 void CHearingVolume::HandleBulletCollision(CBullet* bullet, const CCollision& clsn) {

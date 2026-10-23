@@ -51,7 +51,7 @@ extern "C" int SNDSYSI_init(void* mem, int size, int) {
     SNDI_mutexalloc();
     SNDSYS_entercritical();
     sndgs.voices = (SNDVOICE*)SNDMEMI_allocz(sndgs.numVoices << 7);
-    sndgs.banks = (SNDBANKSLOT*)SNDMEMI_allocz(sndgs.opts.caps.maxBanks * 0xC);
+    sndgs.banks = (SNDBANKSLOT*)SNDMEMI_allocz(sndgs.opts.caps.maxBanks * GC_SIZE(0xC, sizeof(SNDBANKSLOT)));
     SNDSYS_leavecritical();
     sndgs.serverTicks = 0;
     sndgs.masterVol = 0x7F;

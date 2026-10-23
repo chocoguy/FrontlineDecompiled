@@ -31,7 +31,7 @@ struct TriggerObjectData_struct {
     /* 0x3C */ s16 field_0x3C;
     /* 0x3E */ u8 unk_0x3E[0x6];
     // Sorted group IDs: [0] = count, then (category << 16) | group.
-    /* 0x44 */ u32* m_groups;
+    /* 0x44 */ PTR32(u32) m_groups;
     /* 0x48 */ s32 field_0x48;
     /* 0x4C */ u8 unk_0x4C[0x4];
     /* 0x50 */ s32 field_0x50;  // what CreateObject creates (pickups)
@@ -80,7 +80,7 @@ struct TriggerObject_struct {
 // Code addresses are (segment << 24) | word offset into
 // BSCode_struct::m_code[segment].
 #define BS_CODE_ADDRESS(code, addr) \
-    ((u32*)(code)->m_code[(addr) >> 24] + ((addr) & 0xFFFFFF))
+    (ADDR_TO_PTR(u32, (code)->m_code[(addr) >> 24]) + ((addr) & 0xFFFFFF))
 
 // BSCode_EventHandlerEntry_struct::m_flags
 #define BSEVT_DECLARED 0x1   // the state handles the event (else it masks it)
@@ -119,46 +119,55 @@ struct BSCode_MessageHandlerEntry_struct {
 // A state of a script thread: its event and message handlers (size 0x14).
 struct BSHandler_struct {
     /* 0x00 */ s32 m_entry;  // code address run on entering the state
-    /* 0x04 */ BSCode_EventHandlerEntry_struct* m_events;
-    /* 0x08 */ BSCode_MessageHandlerEntry_struct* m_messages;
+    /* 0x04 */ PTR32(BSCode_EventHandlerEntry_struct) m_events;
+    /* 0x08 */ PTR32(BSCode_MessageHandlerEntry_struct) m_messages;
     /* 0x0C */ u16 m_parent;  // state whose handlers apply too (0xFFFF: none)
     /* 0x0E */ u8 m_level;  // nesting depth (substates are deeper)
     /* 0x0F */ u8 m_numMessages;
     /* 0x10 */ u8 m_numEvents;
 };
+FILE_SIZE_ASSERT(BSHandler_struct, 0x14);
 
 // Handler slots that are not real handlers.
+#ifdef FRONTLINE_NATIVE
+// Compared with PTR32 slots, which give these back through NativeAddrToPtr.
+#define BS_HANDLER_NONE ADDR_TO_PTR(BSHandler_struct, 0xFFFFFFFF)
+#define BS_HANDLER_INHERIT ADDR_TO_PTR(BSHandler_struct, 0xFFFFFFFE)  // use the base class's
+#else
 #define BS_HANDLER_NONE ((BSHandler_struct*)-1)
 #define BS_HANDLER_INHERIT ((BSHandler_struct*)-2)  // use the base class's
+#endif
 
 // One script thread's code (size 0x1C).
 struct BSCode_struct {
-    /* 0x00 */ u32* m_code;  // m_numInherited inherited words, then the .cbs table
+    /* 0x00 */ PTR32(u32) m_code;  // m_numInherited inherited words, then the .cbs table
     /* 0x04 */ s32 field_0x4;
-    /* 0x08 */ BSHandler_struct** m_handlers;
+    /* 0x08 */ PTR32(PTR32(BSHandler_struct)) m_handlers;
     /* 0x0C */ u16 m_numHandlers;
     /* 0x0E */ u8 unk_0xE[0x6];
     /* 0x14 */ u16 m_numLocals;  // words of local storage the thread needs
     /* 0x16 */ u16 field_0x16;
     /* 0x18 */ u8 m_numInherited;
 };
+FILE_SIZE_ASSERT(BSCode_struct, 0x1C);
 
 // A compiled script class, loaded from <name>.sin (layout and strings) and
 // <name>.cbs (code); lives inside the .sin file at offset 0x64.
 struct BSClass_struct {
-    /* 0x00 */ BSCode_struct* m_threads;
-    /* 0x04 */ BSClass_struct* m_next;  // g_pcClassList
+    /* 0x00 */ PTR32(BSCode_struct) m_threads;
+    /* 0x04 */ PTR32(BSClass_struct) m_next;  // g_pcClassList
     /* 0x08 */ char m_name[0x40];
     /* 0x48 */ s32 field_0x48;
-    /* 0x4C */ void* m_sinFile;
-    /* 0x50 */ void* m_cbsFile;
+    /* 0x4C */ PTR32(void) m_sinFile;
+    /* 0x50 */ PTR32(void) m_cbsFile;
     /* 0x54 */ s32 m_memoryRequired;
     /* 0x58 */ u16 m_numThreads;
     /* 0x5A */ u8 m_loaded;
     /* 0x5B */ s8 m_release;  // -1 for scripts built for the release engine
     /* 0x5C */ s32 m_numStrings;
-    /* 0x60 */ char** m_strings;
+    /* 0x60 */ PTR32(PTR32(char)) m_strings;
 };
+FILE_SIZE_ASSERT(BSClass_struct, 0x64);
 
 struct BSMessageRegistration_struct;
 
@@ -216,15 +225,16 @@ struct BSObject {
 
 // Script event 0x2B (hit by bullet) data (size 0x18).
 struct BS_STRUCT_HitByBulletInfo_struct {
-    /* 0x00 */ BSObject* m_firedBy;  // the shooter's script, or NULL
+    /* 0x00 */ PTR32(BSObject) m_firedBy;  // the shooter's script, or NULL
     /* 0x04 */ int m_damage;
     /* 0x08 */ int m_side;  // 3 back, 2 front (along the right axis), else 0/1 by the forward axis
     /* 0x0C */ int m_bulletType;
     union {
-        /* 0x10 */ const void* m_pPoly;  // the hit polygon (static objects only)
+        /* 0x10 */ PTR32(const void) m_pPoly;  // the hit polygon (static objects only)
         /* 0x10 */ int m_location;  // explosions/impacts: hit location (9/10 in multiplayer, random elsewhere)
     };
     /* 0x14 */ int m_burstHit;  // soldiers: index of the hit within a burst (else 0)
 };
+FILE_SIZE_ASSERT(BS_STRUCT_HitByBulletInfo_struct, 0x18);  // scripts read it by offset
 
 #endif

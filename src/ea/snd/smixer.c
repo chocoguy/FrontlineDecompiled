@@ -102,7 +102,7 @@ extern "C" void MIX_create(MIXOPTS* opts) {
         sndmix.buf[i] = (f32*)sndmix.bufMem[i];
         sndmix.buf[i] += 2;
         f32* p = sndmix.buf[i];
-        while ((u32)p & 0x3F) {
+        while ((uptr)(p) & 0x3F) {
             p++;
         }
         sndmix.buf[i] = p;
@@ -111,7 +111,7 @@ extern "C" void MIX_create(MIXOPTS* opts) {
         sndmix.outMem[i] = SNDMEMI_allocz(0x2C0);
         sndmix.out[i] = (f32*)sndmix.outMem[i];
         f32* p = sndmix.out[i];
-        while ((u32)p & 0x3F) {
+        while ((uptr)(p) & 0x3F) {
             p++;
         }
         sndmix.out[i] = p;
@@ -218,7 +218,7 @@ extern "C" void MIX_playinit(int voice, int format, int mode, int a, int b, u8* 
     }
     if (sndmix.decoderInit[index] != NULL) {
         mv->decoder = (SFILTER*)SNDMEMI_allocz(sndmix.decoderSize[index]);
-        init.data = (void*)a;
+        init.data = ADDR_TO_PTR(void, a);
         init.unk_0x4 = b;
         init.unk_0x8 = c;
         init.samples = d;
@@ -237,7 +237,7 @@ extern "C" void MIX_playinit(int voice, int format, int mode, int a, int b, u8* 
         if (mode != 0) {
             voice = -1;
         }
-        mv->stretch = (TIMESTRETCHSTATE*)SNDMEMI_allocz(0x1828);
+        mv->stretch = (TIMESTRETCHSTATE*)SNDMEMI_allocz(GC_SIZE(0x1828, sizeof(TIMESTRETCHSTATE)));
         ((SFILTER*)mv->stretch)->destroy = NULL;
         ((SFILTER*)mv->stretch)->order = 0xC8;
         SFILTER_timestretchinit(mv->stretch, stretch, voice);

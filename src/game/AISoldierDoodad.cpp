@@ -20,7 +20,17 @@ CAISoldierDoodad::~CAISoldierDoodad() {
 // The filter is placed just past the soldier object: objects are created in
 // fixed-size factory slots, and soldiers use the slack for it (players, which
 // derive from CSoldierObject, use that space for their own fields instead).
+// Natively the soldier is bigger, so past its native size.
+#ifdef FRONTLINE_NATIVE
+#define SOLDIER_AI_FILTER_OFFSET ((sizeof(CSoldierObject) + 0xF) & ~0xF)
+
+int NativeSoldierSlotSize() {
+    // The filter, then the AI object 16-byte aligned after it.
+    return (int)(SOLDIER_AI_FILTER_OFFSET + ((sizeof(CAIFilterSoldierObject) + 0xF) & ~0xF) + sizeof(CAISoldierObject));
+}
+#else
 #define SOLDIER_AI_FILTER_OFFSET 0x44B0
+#endif
 
 void CAISoldierDoodad::Init(CSoldierObject* soldier) {
     m_pFilter = new ((u8*)soldier + SOLDIER_AI_FILTER_OFFSET) CAIFilterSoldierObject;

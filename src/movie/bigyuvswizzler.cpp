@@ -108,7 +108,7 @@ void tBigYUVSwizzler_DrawSetup(tBigYUVSwizzler* sw, GXTexObj* yTex, GXTexObj* vT
 
 tBigYUVSwizzler* NEW_tBigYUVSwizzlerTexture(GXTexObj* yTex, GXTexObj* vTex, GXTexObj* uTex) {
     tBigYUVSwizzler* sw =
-        (tBigYUVSwizzler*)MEM_alloc("tBigYUVSwizzler", 0x640, RCMP::rcmp_sys.m_allocParam);
+        (tBigYUVSwizzler*)MEM_alloc("tBigYUVSwizzler", GC_SIZE(0x640, sizeof(tBigYUVSwizzler)), RCMP::rcmp_sys.m_allocParam);
     sw->ySwizzler = NEW_tBigSwizzlerTexture(yTex);
     sw->uvSwizzler = NEW_tBigSwizzlerTexture(vTex);
 

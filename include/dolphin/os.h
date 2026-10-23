@@ -41,8 +41,14 @@ u32 OSGetTick(void);
 typedef s64 OSTime;
 OSTime OSGetTime(void);
 OSTime __OSGetSystemTime(void);
+#ifdef FRONTLINE_NATIVE
+// On the console these are words in low memory the IPL fills in.
+#define OS_BUS_CLOCK 162000000u
+#define OS_CORE_CLOCK 486000000u
+#else
 #define OS_BUS_CLOCK (*(u32*)0x800000F8)
 #define OS_CORE_CLOCK (*(u32*)0x800000FC)
+#endif
 #define OS_TIMER_CLOCK (OS_BUS_CLOCK / 4)
 #define OSTicksToMilliseconds(ticks) ((ticks) / (OS_TIMER_CLOCK / 1000))
 #define OSSecondsToTicks(sec) ((sec) * OS_TIMER_CLOCK)
@@ -138,24 +144,27 @@ typedef struct OSThread OSThread;
 typedef struct OSMutex OSMutex;
 typedef void* OSMessage;
 
+// The game embeds these in buffers of their console size (EA's mutexes are
+// u8[0x1C]), so natively their pointers are 32-bit too (PTR32): threads,
+// mutexes and queues all live in the 32-bit address map.
 typedef struct OSThreadQueue {
-    OSThread* head;
-    OSThread* tail;
+    PTR32(OSThread) head;
+    PTR32(OSThread) tail;
 } OSThreadQueue;
 
 typedef struct OSThreadLink {
-    OSThread* next;
-    OSThread* prev;
+    PTR32(OSThread) next;
+    PTR32(OSThread) prev;
 } OSThreadLink;
 
 typedef struct OSMutexQueue {
-    OSMutex* head;
-    OSMutex* tail;
+    PTR32(OSMutex) head;
+    PTR32(OSMutex) tail;
 } OSMutexQueue;
 
 typedef struct OSMutexLink {
-    OSMutex* next;
-    OSMutex* prev;
+    PTR32(OSMutex) next;
+    PTR32(OSMutex) prev;
 } OSMutexLink;
 
 // size 0x310
@@ -166,15 +175,15 @@ struct OSThread {
     /* 0x2CC */ s32 suspend;
     /* 0x2D0 */ s32 priority;
     /* 0x2D4 */ s32 base;
-    /* 0x2D8 */ void* val;
-    /* 0x2DC */ OSThreadQueue* queue;
+    /* 0x2D8 */ PTR32(void) val;
+    /* 0x2DC */ PTR32(OSThreadQueue) queue;
     /* 0x2E0 */ OSThreadLink link;
     /* 0x2E8 */ OSThreadQueue queueJoin;
-    /* 0x2F0 */ OSMutex* mutex;
+    /* 0x2F0 */ PTR32(OSMutex) mutex;
     /* 0x2F4 */ OSMutexQueue queueMutex;
     /* 0x2FC */ OSThreadLink linkActive;
-    /* 0x304 */ u8* stackBase;
-    /* 0x308 */ u32* stackEnd;
+    /* 0x304 */ PTR32(u8) stackBase;
+    /* 0x308 */ PTR32(u32) stackEnd;
 };
 
 #define OS_THREAD_STATE_READY 1
@@ -190,7 +199,7 @@ struct OSThread {
 // size 0x18
 struct OSMutex {
     /* 0x00 */ OSThreadQueue queue;
-    /* 0x08 */ OSThread* thread;
+    /* 0x08 */ PTR32(OSThread) thread;
     /* 0x0C */ s32 count;
     /* 0x10 */ OSMutexLink link;
 };
@@ -199,11 +208,15 @@ struct OSMutex {
 typedef struct OSMessageQueue {
     /* 0x00 */ OSThreadQueue queueSend;
     /* 0x08 */ OSThreadQueue queueReceive;
-    /* 0x10 */ OSMessage* msgArray;
+    /* 0x10 */ PTR32(OSMessage) msgArray;
     /* 0x14 */ s32 msgCount;
     /* 0x18 */ s32 firstIndex;
     /* 0x1C */ s32 usedCount;
 } OSMessageQueue;
+FILE_SIZE_ASSERT(OSThreadQueue, 0x8);
+FILE_SIZE_ASSERT(OSThread, 0x310);
+FILE_SIZE_ASSERT(OSMutex, 0x18);
+FILE_SIZE_ASSERT(OSMessageQueue, 0x20);
 #define OS_MESSAGE_NOBLOCK 0
 #define OS_MESSAGE_BLOCK 1
 

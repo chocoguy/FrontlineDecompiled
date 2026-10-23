@@ -6,6 +6,15 @@
 // have a 16-byte header, then entries of big-endian offset and size followed
 // by the name; 0xC0FB has a 6-byte header and 3-byte fields. A header may
 // end with an 8-byte debug tag ("L234" then a word).
+// The fields are big-endian: native loads on the console.
+#ifdef FRONTLINE_NATIVE
+#define BIG_U16(p) __builtin_bswap16(*(const u16*)(p))
+#define BIG_U32(p) __builtin_bswap32(*(const u32*)(p))
+#else
+#define BIG_U16(p) (*(const u16*)(p))
+#define BIG_U32(p) (*(const u32*)(p))
+#endif
+
 enum {
     BIGTYPE_NONE = 0,
     BIGTYPE_C0FB = 1,
@@ -15,11 +24,11 @@ enum {
 
 static inline int bigtype(const void* header) {
     int type = BIGTYPE_NONE;
-    if (*(const u16*)header == 0xC0FB) {
+    if (BIG_U16(header) == 0xC0FB) {
         type = BIGTYPE_C0FB;
-    } else if (*(const u32*)header == 0x42494746) {  // "BIGF"
+    } else if (BIG_U32(header) == 0x42494746) {  // "BIGF"
         type = BIGTYPE_BIGF;
-    } else if ((*(const u32*)header & ~0xFF) == 0x42494700) {  // "BIG?"
+    } else if ((BIG_U32(header) & ~0xFF) == 0x42494700) {  // "BIG?"
         type = BIGTYPE_BIGN;
     }
     return type;
@@ -29,11 +38,11 @@ static inline int bigheadersize(const void* header) {
     int size = 0;
     switch (bigtype(header)) {
     case BIGTYPE_C0FB:
-        size = ((const u16*)header)[1] + 4;
+        size = BIG_U16((const u16*)header + 1) + 4;
         break;
     case BIGTYPE_BIGF:
     case BIGTYPE_BIGN:
-        size = ((const u32*)header)[3];
+        size = BIG_U32((const u32*)header + 3);
         break;
     }
     return size;
@@ -45,15 +54,15 @@ static inline u32 bigfield(const u8* p, int n) {
         if (n == 1) {
             return *p;
         } else if (n == 2) {
-            return *(const u16*)p;
+            return BIG_U16(p);
         } else if (n == 3) {
-            return *(const u32*)p >> 8;
+            return BIG_U32(p) >> 8;
         } else if (n == 4) {
-            return *(const u32*)p;
+            return BIG_U32(p);
         }
         return 0;
     }
-    return *(const u32*)(p + n - 4);
+    return BIG_U32(p + n - 4);
 }
 
 extern "C" int BIG_typeofheader(const void* header) {
@@ -75,7 +84,7 @@ static int BIG_debuginfo(const void* header, int* version, unsigned int* info) {
             *version = (p[1] - '0') * 100 + (p[2] - '0') * 10 + (p[3] - '0');
         }
         if (info != NULL) {
-            *info = *(const u32*)(p + 4);
+            *info = BIG_U32(p + 4);
         }
     }
     return result;
@@ -125,7 +134,7 @@ extern "C" int BIG_locateentryz(const void* big, const char* name, int index, in
                 if (size != NULL) {
                     *size = bigfield(p + offsize, sizesize);
                 }
-                return (int)entry;
+                return (int)PTR_TO_ADDR(entry);
             }
             p = (const u8*)entry + strlen(entry) + 1;
         }
@@ -140,7 +149,7 @@ extern "C" int BIG_locateentryz(const void* big, const char* name, int index, in
                 if (size != NULL) {
                     *size = bigfield(p + offsize, sizesize);
                 }
-                return (int)entry;
+                return (int)PTR_TO_ADDR(entry);
             }
             p = (const u8*)entry + strlen(entry) + 1;
             i++;
@@ -172,11 +181,11 @@ extern "C" int BIG_count(const void* big) {
     int count = 0;
     switch (bigtype(big)) {
     case BIGTYPE_C0FB:
-        count = ((const u16*)big)[2];
+        count = BIG_U16((const u16*)big + 2);
         break;
     case BIGTYPE_BIGF:
     case BIGTYPE_BIGN:
-        count = ((const u32*)big)[2];
+        count = BIG_U32((const u32*)big + 2);
         break;
     }
     return count;

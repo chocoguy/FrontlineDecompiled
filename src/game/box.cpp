@@ -1224,7 +1224,7 @@ void CVolBox::TransformedCopy(const IVolume& volume, const CMatrix& m) {
 }
 
 int CVolBox::Create() const {
-    return (int)new CVolBox;
+    return (int)PTR_TO_ADDR(new CVolBox);
 }
 
 void CVolBox::operator=(const CVolBox& other) {

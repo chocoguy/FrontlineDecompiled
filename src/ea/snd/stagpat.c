@@ -137,8 +137,8 @@ int SNDBANKI_playtimbre(int bankIndex, int patchIndex, void* bank, SNDPLAYOPTS* 
         if (header->unk_0x6 != 0) {
             voice->detune += randrange(header->unk_0x6);
         }
-        voice->volCurve = (u8*)header->unk_0x20;
-        voice->unk_0x68 = (u8*)header->unk_0x24;
+        voice->volCurve = ADDR_TO_PTR(u8, header->unk_0x20);
+        voice->unk_0x68 = ADDR_TO_PTR(u8, header->unk_0x24);
         voice->volStep = 0;
         voice->vol = vol;
 
@@ -167,8 +167,8 @@ int SNDBANKI_playtimbre(int bankIndex, int patchIndex, void* bank, SNDPLAYOPTS* 
         }
         voice->envStep = ((voice->env[0].level << 16) - voice->envLevel) / voice->envTicks;
 
-        voice->volLfo = (s8*)header->unk_0x2C;
-        voice->pitchLfo = (s8*)header->unk_0x30;
+        voice->volLfo = ADDR_TO_PTR(s8, header->unk_0x2C);
+        voice->pitchLfo = ADDR_TO_PTR(s8, header->unk_0x30);
         voice->volLfoLen = header->unk_0x1B;
         voice->pitchLfoLen = header->unk_0x1D;
         voice->pitchLfoDepth = header->unk_0x54;

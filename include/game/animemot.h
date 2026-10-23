@@ -20,8 +20,8 @@ void* CopyCompressedData(unsigned char*);  // 0x80062854
 int CopyStateList(AnimFileFormat_t*);  // 0x80062B9C
 void CopyStateDef(AnimEmotStateDef_t*, AnimEmotStateDef_t*);  // 0x80062CE8
 void UploadFramesToARAM(AnimFileFormat_t*, unsigned char*, unsigned char*);  // 0x80063334
-void DMAToARAMCallback(unsigned long);  // 0x80063490
-void DMAFromARAMCallback(unsigned long);  // 0x800634BC
+void DMAToARAMCallback(u32);  // 0x80063490
+void DMAFromARAMCallback(u32);  // 0x800634BC
 
 // Unmangled (C linkage or file-static) functions; signatures unknown:
 //   AnimFileGetFrame  0x80063238 size 0xFC

@@ -42,6 +42,7 @@
 #include "game/toilet.h"
 #include "game/vector.h"
 #include "game/weapon.h"
+#include "game/staticmesh.h"
 #include "math.h"
 #include "string.h"
 
@@ -132,12 +133,19 @@ static inline void PlaceAtTrigger(IMovingSceneNode* node, TriggerObjectData_stru
 
 // A placed object's script (patched by PatchUpCore) and maximum health.
 static inline const char* ChildScript(TriggerObjectData_struct* data) {
-    return *(const char**)((u8*)data + 0x4C);
+    return *(PTR32(const char)*)((u8*)data + 0x4C);
 }
 
 // The bounding box of a static object's mesh.
+// (The root node, viewed as a box with the GameCube layout.)
 static inline CVolBox* MeshBounds(CStaticObject* obj) {
+#ifdef FRONTLINE_NATIVE
+    static CVolBox bounds;
+    bounds = GCVolBox(obj->m_pMesh->m_pData->m_nodes);
+    return &bounds;
+#else
     return *(CVolBox**)(*(u8**)((u8*)obj->m_pMesh + 4) + 0x20);
+#endif
 }
 
 void* BSGO_Player::GetScriptData() {
@@ -491,7 +499,7 @@ BSGO_Destructable* CreateDestructable(TriggerObject_struct* trigger, int arg) {
     if (script != NULL) {
         CreateBSObject(script, &go->m_object, go, trigger, (void**)&go->m_scriptData[2]);
         obj->SetScript(go->m_object);
-        BSObjectTriggerEvent(go->m_object, BSEVENT_START, (void*)arg, NULL, false);
+        BSObjectTriggerEvent(go->m_object, BSEVENT_START, ADDR_TO_PTR(void, arg), NULL, false);
     } else {
         ReportMissingScript("Mechanic", pos);
     }
@@ -548,7 +556,7 @@ BSGO_Tank* CreateRootHierObject(TriggerObject_struct* trigger, int arg) {
     go->m_scriptData[0] = data->field_0x70;
     CreateBSObject(ChildScript(data), &go->m_object, go, trigger, (void**)&go->m_scriptData[1]);
     hier->SetScript(go->m_object);
-    BSObjectTriggerEvent(go->m_object, BSEVENT_START, (void*)arg, NULL, false);
+    BSObjectTriggerEvent(go->m_object, BSEVENT_START, ADDR_TO_PTR(void, arg), NULL, false);
     if (tank != NULL) {
         tank->SetCollisionId((EClsnId)0x17);
         tank->AddWeapon(0, *(int*)((u8*)data + 0x98));
@@ -590,7 +598,7 @@ CThrownObject* CreateSpecialThrownObject(TriggerObject_struct* trigger, int crc,
             go->m_scriptData[0] = data->field_0x70;
             CreateBSObject(ChildScript(data), &go->m_object, go, trigger, (void**)&go->m_scriptData[2]);
             thrown->SetScript(go->m_object);
-            BSObjectTriggerEvent(go->m_object, BSEVENT_START, (void*)arg, NULL, false);
+            BSObjectTriggerEvent(go->m_object, BSEVENT_START, ADDR_TO_PTR(void, arg), NULL, false);
         }
     }
     return thrown;
@@ -637,7 +645,7 @@ BSGO_Destructable* CreateCollisionVolume(TriggerObject_struct* trigger, int arg)
     if (script != NULL) {
         CreateBSObject(script, &go->m_object, go, trigger, (void**)&go->m_scriptData[2]);
         volume->SetScript(go->m_object);
-        BSObjectTriggerEvent(go->m_object, BSEVENT_START, (void*)arg, NULL, false);
+        BSObjectTriggerEvent(go->m_object, BSEVENT_START, ADDR_TO_PTR(void, arg), NULL, false);
     } else {
         ReportMissingScript("Mechanic", pos);
     }
@@ -758,7 +766,7 @@ BSGO_Soldier* CreateGerman(TriggerObject_struct* trigger, int arg, bool queue) {
     if (script != NULL) {
         CreateBSObject(script, &go->m_object, go, trigger, (void**)&go->m_scriptData[1]);
         soldier->SetScript(go->m_object);
-        BSObjectTriggerEvent(go->m_object, BSEVENT_START, (void*)arg, NULL, false);
+        BSObjectTriggerEvent(go->m_object, BSEVENT_START, ADDR_TO_PTR(void, arg), NULL, false);
     } else {
         ReportMissingScript("Soldier", pos);
     }
@@ -872,7 +880,12 @@ CStaticObject* CreateDumpObject(const CVector3& pos, const CQuaternion& orientat
     u8* mesh = (u8*)obj->m_pMesh;
     obj->Init();
     CVolSphere* local = AllocateSphereVolume();
+#ifdef FRONTLINE_NATIVE
+    CVolBox boundsCopy = GCVolBox(((CStaticMesh*)mesh)->m_pData->m_nodes);
+    CVolBox* bounds = &boundsCopy;
+#else
     CVolBox* bounds = *(CVolBox**)(*(u8**)(mesh + 4) + 0x20);
+#endif
     float half = g_fDumpObjectCollisionRadius * 0.5f;
     CVector3 center(0.0f, 0.0f, half);
     center.z = half + bounds->m_center.z;
@@ -970,7 +983,7 @@ CStaticObject* CreateDumpObject(const CVector3& pos, const CQuaternion& orientat
 }
 
 BSObject* CPlayerObject::GetScriptObject() const {
-    return *(BSObject**)((u8*)this + 0x250);
+    return m_pScriptObject;
 }
 
 // Creates the object a trigger places (with `arg` passed to its script's
@@ -983,7 +996,7 @@ void* CreateObject(TriggerObject_struct* trigger, int arg, void* extra) {
         switch ((u32)data->field_0x48) {
         case 0x271BD574:  // player start
         case 0xFD092133:  // player restart
-            result = CreatePlayer(trigger, (int)extra);
+            result = CreatePlayer(trigger, (int)PTR_TO_ADDR(extra));
             break;
         default:
             result = CreateDestructable(trigger, arg);
@@ -1077,6 +1090,11 @@ void ShutdownObjectCreators() {
     g_pTankList = NULL;
 }
 
+// Pool element sizes: the largest object built in each pool's slots.
+#define VOLUME_SLOT_SIZE GC_SIZE(0x50, sizeof(CVolSphere) > sizeof(CVolBox) ? sizeof(CVolSphere) : sizeof(CVolBox))
+#define ENVMOD_SLOT_SIZE GC_SIZE(0x80, sizeof(CCollisionVolume))
+#define ANIMVOLUME_SLOT_SIZE GC_SIZE(0x7C0, sizeof(CAnimatedVolume))
+
 static inline int Align16(int size) {
     return size + ((0x10 - (size & 0xF)) & 0xF);
 }
@@ -1084,13 +1102,13 @@ static inline int Align16(int size) {
 static inline int PoolSizes() {
     int size = g_pObjectAllocators[POOL_DESTRUCTABLES].ComputeNeededSize(sizeof(BSGO_Destructable), 200, 0);
     size = Align16(size + g_pObjectAllocators[POOL_ACTORS].ComputeNeededSize(sizeof(BSGO_Soldier), 25, 0));
-    size = Align16(size + g_pVolumeAllocator.ComputeNeededSize(0x50, 450, 0x10));
-    size = Align16(size + g_pEnvModMechAllocator.ComputeNeededSize(0x80, 50, 0x10));
-    return size + g_pAnimatedVolumeAllocator.ComputeNeededSize(0x7C0, 50, 0x10);
+    size = Align16(size + g_pVolumeAllocator.ComputeNeededSize(VOLUME_SLOT_SIZE, 450, 0x10));
+    size = Align16(size + g_pEnvModMechAllocator.ComputeNeededSize(ENVMOD_SLOT_SIZE, 50, 0x10));
+    return size + g_pAnimatedVolumeAllocator.ComputeNeededSize(ANIMVOLUME_SLOT_SIZE, 50, 0x10);
 }
 
 static inline u8* AlignPtr16(u8* p) {
-    return p + ((0x10 - ((s32)p & 0xF)) & 0xF);
+    return p + ((0x10 - ((sptr)(p) & 0xF)) & 0xF);
 }
 
 void InitObjectCreators() {
@@ -1099,12 +1117,12 @@ void InitObjectCreators() {
     memory += g_pObjectAllocators[POOL_DESTRUCTABLES].ComputeNeededSize(sizeof(BSGO_Destructable), 200, 0);
     g_pObjectAllocators[POOL_ACTORS].Init(memory, sizeof(BSGO_Soldier), 25, 0);
     memory = AlignPtr16(memory + g_pObjectAllocators[POOL_ACTORS].ComputeNeededSize(sizeof(BSGO_Soldier), 25, 0));
-    g_pVolumeAllocator.Init(memory, 0x50, 450, 0x10);
-    memory = AlignPtr16(memory + g_pVolumeAllocator.ComputeNeededSize(0x50, 450, 0x10));
-    g_pEnvModMechAllocator.Init(memory, 0x80, 50, 0x10);
-    memory = AlignPtr16(memory + g_pEnvModMechAllocator.ComputeNeededSize(0x80, 50, 0x10));
-    g_pAnimatedVolumeAllocator.Init(memory, 0x7C0, 50, 0x10);
-    g_pAnimatedVolumeAllocator.ComputeNeededSize(0x7C0, 50, 0x10);
+    g_pVolumeAllocator.Init(memory, VOLUME_SLOT_SIZE, 450, 0x10);
+    memory = AlignPtr16(memory + g_pVolumeAllocator.ComputeNeededSize(VOLUME_SLOT_SIZE, 450, 0x10));
+    g_pEnvModMechAllocator.Init(memory, ENVMOD_SLOT_SIZE, 50, 0x10);
+    memory = AlignPtr16(memory + g_pEnvModMechAllocator.ComputeNeededSize(ENVMOD_SLOT_SIZE, 50, 0x10));
+    g_pAnimatedVolumeAllocator.Init(memory, ANIMVOLUME_SLOT_SIZE, 50, 0x10);
+    g_pAnimatedVolumeAllocator.ComputeNeededSize(ANIMVOLUME_SLOT_SIZE, 50, 0x10);
     int i;
     for (i = 0; i < DELAY_DESTROY_SIZE; i++) {
         g_pDelayDestroyList[i].m_frame = 0;
@@ -1190,5 +1208,5 @@ void* BSGO_Soldier::GetProximityData() {
 }
 
 void* BSGO_Soldier::GetEmbeddedHitReactionInfo() {
-    return (u8*)this + 0x98;
+    return (u8*)&m_scriptData[0x22];
 }

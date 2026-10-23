@@ -33,10 +33,10 @@ CCharacterShadow::CCharacterShadow() {
     m_alpha = 0.0f;
     if (g_pImageData == NULL) {
         LevelFileContentsStruct_* res = TLT_FindNextResourceByType((TLTResourceID)0xB, NULL);
-        g_pImageData = TLT_LoadFileFromLevelBigFile((const char*)res->fields[50].value, NULL);
+        g_pImageData = TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(const char, res->fields[50].value), NULL);
         res = TLT_FindNextResourceByType((TLTResourceID)0xD, NULL);
         if (res->fields[65].value != 0) {
-            g_pImageData = TLT_LoadFileFromLevelBigFile((const char*)res->fields[66].value, NULL);
+            g_pImageData = TLT_LoadFileFromLevelBigFile(ADDR_TO_PTR(const char, res->fields[66].value), NULL);
             g_FadeDistance = ResourceFloat(res, 67);
             g_ShadowAlpha = ResourceFloat(res, 68);
             g_ProjectionDistance = ResourceFloat(res, 69);

@@ -41,7 +41,7 @@ extern "C" int SNDAEMS_streaminit(void* buffer, int size, int numStreams) {
     sndaems.streams->size = size;
     sndaems.streams->numStreams = numStreams;
     sndaems.streams->frames = 0x3C;
-    sndaems.streams->streams = (AEMSSTREAMSTATUS**)SNDMEMI_allocz(numStreams << 2);
+    sndaems.streams->streams = (PTR32(AEMSSTREAMSTATUS)*)SNDMEMI_allocz(numStreams << 2);
     SNDplaysetdef(&opts);
     each = (size / numStreams) & 0x7FFFFFFC;
     for (i = 0; i < numStreams; i++) {
@@ -221,7 +221,7 @@ void SNDAEMSI_updateplayerstream(AEMSCOMPDYNAMICPLAYER* d) {
         int gate = d->in[7];
         if (gate == 1) {
             if (d->lastGate == 0) {
-                AEMSPLAYERTABLE* table = (AEMSPLAYERTABLE*)comp->p[0];
+                AEMSPLAYERTABLE* table = ADDR_TO_PTR(AEMSPLAYERTABLE, comp->p[0]);
                 MODULEBANK* bank;
                 AEMSSTREAMENTRY* entry;
                 int index = d->in[6];
@@ -229,7 +229,7 @@ void SNDAEMSI_updateplayerstream(AEMSCOMPDYNAMICPLAYER* d) {
                     index = table->count - 1;
                 }
                 d->entry = table->entries[index];
-                bank = (MODULEBANK*)comp->p[1];
+                bank = ADDR_TO_PTR(MODULEBANK, comp->p[1]);
                 entry = &bank->streams[d->entry & 0x3FFF];
                 d->stream = SNDAEMSI_streamgethandle(d, entry->priority);
                 d->handle = -1;
@@ -280,7 +280,7 @@ void SNDAEMSI_updateplayerstream(AEMSCOMPDYNAMICPLAYER* d) {
                     SNDSTRM_highpass(d->stream, d->highpass);
                     d->timemult = AEMS_clampu16(d->in[1]);
                     SNDSTRM_timemult(d->stream, d->timemult);
-                    if (((MODULEBANK*)comp->p[1])->version >= 9) {
+                    if ((ADDR_TO_PTR(MODULEBANK, comp->p[1]))->version >= 9) {
                         d->dry = AEMS_clamp7fff(d->in[10]);
                         SNDSTRM_drylevel(d->stream, (s8)(d->dry >> 8));
                     }
@@ -409,7 +409,7 @@ void SNDAEMSI_streamupdateattributes(AEMSCOMPDYNAMICPLAYER* d) {
         d->timemult = AEMS_clampu16(d->in[1]);
         SNDSTRM_timemult(d->stream, d->timemult);
     }
-    if (((MODULEBANK*)comp->p[1])->version >= 9 && d->in[10] != d->dry) {
+    if ((ADDR_TO_PTR(MODULEBANK, comp->p[1]))->version >= 9 && d->in[10] != d->dry) {
         d->dry = AEMS_clamp7fff(d->in[10]);
         SNDSTRM_drylevel(d->stream, (s8)(d->dry >> 8));
     }

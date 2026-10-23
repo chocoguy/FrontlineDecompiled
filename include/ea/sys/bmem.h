@@ -4,26 +4,31 @@
 
 #include "types.h"
 
+// The links are 32-bit natively too: elements can be 4 bytes, and the
+// headers' sizes are fixed (0x20).
 struct BPoolNode {
-    BPoolNode* next;
+    PTR32(BPoolNode) next;
 };
 
 // A pool of elements; the elements start 0x20 bytes in.
 struct BPool {
-    /* 0x0 */ BPool* next;  // circular, through the manager
+    /* 0x0 */ PTR32(BPool) next;  // circular, through the manager
     /* 0x4 */ u32 count;
     /* 0x8 */ u8 unk_0x8[0x18];
 };
 
 struct BPoolMan {
-    /* 0x00 */ BPool* firstPool;
-    /* 0x04 */ BPool* lastPool;
+    /* 0x00 */ PTR32(BPool) firstPool;
+    /* 0x04 */ PTR32(BPool) lastPool;
     /* 0x08 */ BPoolNode freeHead;  // free elements, circular through freeHead
-    /* 0x0C */ BPoolNode* freeLast;
+    /* 0x0C */ PTR32(BPoolNode) freeLast;
     /* 0x10 */ u32 elemSize;
     /* 0x14 */ u8 unk_0x14[0xC];
     // first pool at 0x20
 };
+FILE_SIZE_ASSERT(BPoolNode, 0x4);
+FILE_SIZE_ASSERT(BPool, 0x20);
+FILE_SIZE_ASSERT(BPoolMan, 0x20);
 
 // Take the first free element. The list counts as empty while one element is left.
 static inline void* BAlloc(BPoolMan* man) {

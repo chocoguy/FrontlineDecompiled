@@ -38,7 +38,7 @@ bool CRenderList::Finish() {
 // Links the chunks each used bin wrote (its first tag is in m_count).
 void CRenderList::FinishBin(CRenderBin* bin) {
     if (bin->IsUsed()) {
-        bin->Link((CDmaTag*)bin->m_count, *this);
+        bin->Link(ADDR_TO_PTR(CDmaTag, bin->m_count), *this);
     }
     for (CRenderBin* child = bin->m_pChildren; child != NULL; child = child->m_pNext) {
         FinishBin(child);
@@ -80,18 +80,18 @@ void CRenderList::Render(CRenderBin& bin, void* context) {
     m_tag->m_data = NULL;
     m_ptr += sizeof(CDmaTag);
     m_tag->m_data = m_ptr;
-    CDmaTag* last = (CDmaTag*)bin.field_0xC;
+    CDmaTag* last = ADDR_TO_PTR(CDmaTag, bin.field_0xC);
     if (last != NULL) {
         last->m_next = m_tag;
     }
-    bin.field_0xC = (u32)m_tag;
+    bin.field_0xC = (u32)PTR_TO_ADDR(m_tag);
     u8* start = m_ptr;
     bin.Render(*this, context);
     if (start == m_ptr) {
         m_ptr = (u8*)tag;
-        bin.field_0xC = (u32)last;
+        bin.field_0xC = (u32)PTR_TO_ADDR(last);
     } else if (bin.m_count == 0) {
-        bin.m_count = (u32)m_tag;
+        bin.m_count = (u32)PTR_TO_ADDR(m_tag);
     }
     m_tag = NULL;
 }

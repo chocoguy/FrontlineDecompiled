@@ -17,6 +17,11 @@ int SNDAEMSI_addmodulebank(void* data, char* streamFile, int streamOffset, void*
     int slot;
     MODULEBANK* moved;
 
+#ifdef FRONTLINE_NATIVE
+    AEMSBankHeaderFromBigEndian(bank);
+    size = bank->size;
+    headerSize = size - (bank->sfxBankSize + bank->midiBankSize);
+#endif
     for (slot = 0; slot < 16; slot++) {
         if (sndaems.banks[slot] == NULL) {
             break;

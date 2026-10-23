@@ -51,7 +51,7 @@ public:
     /* 0x0CC */ const CMatrix* m_pClip;
     /* 0x0D0 */ const CMatrix* m_pScreen;
     /* 0x0D4 */ ISceneNode* m_pCamera;
-    /* 0x0D8 */ u32 field_0xD8;
+    /* 0x0D8 */ uptr field_0xD8;  // CFog* (pointer-sized natively)
     /* 0x0DC */ u8 unk_0xDC[0x4];
     /* 0x0E0 */ f32 m_scale[3];
     /* 0x0EC */ u8 unk_0xEC[0x4];

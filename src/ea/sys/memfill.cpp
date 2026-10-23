@@ -5,28 +5,28 @@
 extern "C" void MEM_fill(void* dest, int value, int size) {
     u8* d = (u8*)dest;
 
-    if (size >= 1 && ((u32)d & 1)) {
+    if (size >= 1 && ((uptr)(d) & 1)) {
         *d = value;
         d += 1;
         size -= 1;
     }
-    if (size >= 2 && ((u32)d & 2)) {
+    if (size >= 2 && ((uptr)(d) & 2)) {
         *(u16*)d = value;
         d += 2;
         size -= 2;
     }
-    if (size >= 4 && ((u32)d & 4)) {
+    if (size >= 4 && ((uptr)(d) & 4)) {
         *(u32*)d = value;
         d += 4;
         size -= 4;
     }
-    if (size >= 8 && ((u32)d & 8)) {
+    if (size >= 8 && ((uptr)(d) & 8)) {
         ((u32*)d)[0] = value;
         size -= 8;
         ((u32*)d)[1] = value;
         d += 8;
     }
-    if (size >= 16 && ((u32)d & 16)) {
+    if (size >= 16 && ((uptr)(d) & 16)) {
         ((u32*)d)[0] = value;
         size -= 16;
         ((u32*)d)[1] = value;

@@ -24,4 +24,10 @@ public:
     void Update(float dt);
 };
 
+#ifdef FRONTLINE_NATIVE
+// Bytes a soldier's factory slot needs: the object, its AI filter and the
+// filter's AI object (see CAISoldierDoodad::Init).
+int NativeSoldierSlotSize();
+#endif
+
 #endif

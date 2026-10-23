@@ -59,7 +59,7 @@ int CAnimCallbacks::_AnimIntfOpcodeProcess(void* userData, unsigned short opcode
     CAnimatedPlayer* animPlayer = owner->AsAnimatedPlayerObject();
     CPlayerWeaponObject* weaponObj = owner->AsPlayerWeaponObject();
 
-    if (state != AnimStGetCurrentState((u8*)animated + 0x890) && state != 0xFFFF) {
+    if (state != AnimStGetCurrentState(animated->m_stateInfo) && state != 0xFFFF) {
         return 1;
     }
     switch (opcode) {
@@ -96,7 +96,7 @@ int CAnimCallbacks::_AnimIntfOpcodeProcess(void* userData, unsigned short opcode
         handled = 1;
         break;
     case OP_SCRIPT_EVENT_7E_PARAM:
-        owner->TriggerScriptEvent(0x7E, (void*)AnimSeqGetOpcodeParameter(), false);
+        owner->TriggerScriptEvent(0x7E, ADDR_TO_PTR(void, AnimSeqGetOpcodeParameter()), false);
         handled = 1;
         break;
     case OP_SCRIPT_EVENT_7F:
@@ -128,7 +128,7 @@ int CAnimCallbacks::_AnimIntfOpcodeProcess(void* userData, unsigned short opcode
         handled = 1;
         break;
     case OP_SCRIPT_EVENT_FF:
-        owner->TriggerScriptEvent(0xFF, (void*)(AnimSeqGetOpcodeParameter() - 1), false);
+        owner->TriggerScriptEvent(0xFF, ADDR_TO_PTR(void, (AnimSeqGetOpcodeParameter() - 1)), false);
         handled = 1;
         break;
     case OP_SET_CC0: {

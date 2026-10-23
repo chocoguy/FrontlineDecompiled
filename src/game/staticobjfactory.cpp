@@ -13,6 +13,10 @@
 #include "game/objcreate.h"
 #include "game/toilet.h"
 #include "game/quaternion.h"
+#ifdef FRONTLINE_NATIVE
+#include "game/AIFilter.h"
+#include "game/AITankObject.h"
+#endif
 #include "game/Moh2.h"
 #include "game/memory.h"
 #include "stdlib.h"
@@ -35,10 +39,18 @@
 #define THROWN_PROPERTIES_CRC 0x7D06EB90
 
 // A tank and its AI filter (TANK_AI_FILTER_OFFSET) share one 0x1000 slot.
+#ifdef FRONTLINE_NATIVE
+// Natively sized for the filter and its AI object, with room to align each.
+struct STankSlot {
+    CTankObject m_tank;
+    alignas(16) u8 m_ai[((sizeof(CAIFilterTankObject) + 0xF) & ~0xF) + sizeof(CAITankObject) + 0x10];
+};
+#else
 struct STankSlot {
     CTankObject m_tank;
     u8 m_ai[0x1000 - sizeof(CTankObject)];
 };
+#endif
 
 // One object definition (size 0x2C). The mesh is constructed in place.
 struct StaticObjectTemplate {
@@ -88,7 +100,11 @@ struct StaticObjectTemplate {
     }
 
     /* 0x00 */ int m_meshType;  // -1 none, 0 CStaticMesh, 2 CStaticAnimMesh
+#ifdef FRONTLINE_NATIVE
+    alignas(CStaticAnimMesh) u8 m_mesh[sizeof(CStaticAnimMesh)];  // the mesh objects hold 8-byte pointers
+#else
     /* 0x04 */ u8 m_mesh[0x10];
+#endif
     /* 0x14 */ int m_crc;
     /* 0x18 */ int m_flags;
     /* 0x1C */ MotionData* m_pMotion;
@@ -126,6 +142,9 @@ static CStaticObject* g_pAttachableObjectFreeList;
 static CStaticObject* g_pThrownObjectFreeList;
 
 static inline u32 Swap32(u32 v) {
+#ifdef FRONTLINE_NATIVE
+    return v;  // little-endian data on a little-endian CPU: nothing to swap
+#endif
     return (v << 24) | ((v & 0xFF00) << 8) | ((v >> 8) & 0xFF00) | (v >> 24);
 }
 
@@ -264,8 +283,8 @@ void CStaticObjectFactory::Init() {
             t.m_flags = res->fields[2].value;
             t.m_pResource = res;
             t.m_index = -1;
-            t.LoadMotion((const char*)res->fields[5].value);
-            t.LoadMesh((const char*)res->fields[0].value);
+            t.LoadMotion(ADDR_TO_PTR(const char, res->fields[5].value));
+            t.LoadMesh(ADDR_TO_PTR(const char, res->fields[0].value));
             SetMeshOptions(t, res);
             n++;
         }
@@ -277,8 +296,8 @@ void CStaticObjectFactory::Init() {
             t.m_pMotion = NULL;
             t.m_pResource = res;
             t.m_index = -1;
-            DebugMsg("Loading static mesh file %s\n", (const char*)res->fields[2].value);
-            t.LoadMesh((const char*)res->fields[2].value);
+            DebugMsg("Loading static mesh file %s\n", ADDR_TO_PTR(const char, res->fields[2].value));
+            t.LoadMesh(ADDR_TO_PTR(const char, res->fields[2].value));
             n++;
         }
         LevelFileContentsStruct_* thrownProps =
@@ -297,7 +316,7 @@ void CStaticObjectFactory::Init() {
             t.m_index = -1;
             int size;
             bool loaded;
-            void* data = TLT_LoadFromRepository((const char*)res->fields[7].value, &size, &loaded);
+            void* data = TLT_LoadFromRepository(ADDR_TO_PTR(const char, res->fields[7].value), &size, &loaded);
             t.m_meshType = 0;
             CStaticMesh* mesh = new (t.m_mesh) CStaticMesh;
             mesh->Init(data, !loaded);
@@ -314,11 +333,11 @@ void CStaticObjectFactory::Init() {
                 t.m_pResource = res;
                 t.m_index = i;
                 if (res->fields[7 + 3 * i].value != 0) {
-                    t.LoadMotion((const char*)res->fields[7 + 3 * i].value);
+                    t.LoadMotion(ADDR_TO_PTR(const char, res->fields[7 + 3 * i].value));
                 } else {
                     t.m_pMotion = NULL;
                 }
-                t.LoadMesh((const char*)res->fields[5 + 3 * i].value);
+                t.LoadMesh(ADDR_TO_PTR(const char, res->fields[5 + 3 * i].value));
                 SetMeshOptions(t, res);
                 n++;
             }

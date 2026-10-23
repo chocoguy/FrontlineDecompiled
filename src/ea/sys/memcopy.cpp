@@ -40,7 +40,7 @@ extern "C" void MEM_copy(void* dest, const void* src, int size) {
         }
     } else if (diff & 2) {
         // Halfwords.
-        if (((u32)s & 1) && size >= 1) {
+        if (((uptr)(s) & 1) && size >= 1) {
             *d++ = *s++;
             size--;
         }
@@ -76,11 +76,11 @@ extern "C" void MEM_copy(void* dest, const void* src, int size) {
         }
     } else {
         // Words once both pointers are aligned.
-        if (((u32)s & 1) && size >= 1) {
+        if (((uptr)(s) & 1) && size >= 1) {
             *d++ = *s++;
             size--;
         }
-        if (((u32)s & 2) && size >= 2) {
+        if (((uptr)(s) & 2) && size >= 2) {
             *(s16*)d = *(const s16*)s;
             s += 2;
             size -= 2;

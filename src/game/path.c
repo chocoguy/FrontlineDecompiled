@@ -103,7 +103,7 @@ static inline void PATHI_findlead() {
 
 int PATH_fade(int track, int volume, int ms) {
     if (!PATH_LOCK()) {
-        return;
+        RETURN_NOTHING;
     }
     s8 level = 1.27f * (float)volume;
     for (int i = 0; i < PATH_MAXPROJECTS; i++) {
@@ -129,11 +129,12 @@ int PATH_fade(int track, int volume, int ms) {
         }
     }
     PATH_UNLOCK();
+    END_RETURN_NOTHING
 }
 
 int PATH_volume(int track, char volume) {
     if (!PATH_LOCK()) {
-        return;
+        RETURN_NOTHING;
     }
     if (volume > 100) {
         volume = 100;
@@ -158,12 +159,13 @@ int PATH_volume(int track, char volume) {
         }
     }
     PATH_UNLOCK();
+    END_RETURN_NOTHING
 }
 
 // Stops every track of the matching projects.
 int PATH_stop(int track) {
     if (!PATH_LOCK()) {
-        return;
+        RETURN_NOTHING;
     }
     for (int i = 0; i < PATH_MAXPROJECTS; i++) {
         if (PATHI_matches(&pfstates[i], track) && PATHI_setproject(i) != 0) {
@@ -177,11 +179,12 @@ int PATH_stop(int track) {
         }
     }
     PATH_UNLOCK();
+    END_RETURN_NOTHING
 }
 
 int PATH_pause(int track, char pause) {
     if (!PATH_LOCK()) {
-        return;
+        RETURN_NOTHING;
     }
     if (track == -1) {
         paused = pause;
@@ -198,6 +201,7 @@ int PATH_pause(int track, char pause) {
         }
     }
     PATH_UNLOCK();
+    END_RETURN_NOTHING
 }
 
 // Destroys the first matching track (and its project once it has none).
@@ -535,6 +539,9 @@ int PATH_createtrack(int id, int index, const char* file, int latency, SNDPLAYOP
 // instance bit. Returns the project id, -1 when it can't be added.
 int PATH_addmapfile(void* data) {
     PATHMAP* map = (PATHMAP*)data;
+#ifdef FRONTLINE_NATIVE
+    PathMapFromBigEndian(map);
+#endif
     int slot = PATH_MAXPROJECTS;
     int result = -1;
     if (!inited && pfactive == 0) {
@@ -1341,14 +1348,6 @@ int PATHI_enternode(int from, int node, int level) {
     return (s16)PATHI_remap(from, index);
 }
 
-// A fade curve: the curve shape, run backwards when `invert`, over
-// `duration` ms. size 0x4
-typedef struct PATHFADE {
-    /* 0x0 */ u8 type : 7;  // 1 linear, 2 quadratic, 3 1/x
-    /* 0x0 */ u8 invert : 1;
-    /* 0x1 */ u8 unk_0x1;
-    /* 0x2 */ u16 duration;
-} PATHFADE;
 
 // Sets the volume a fading track is at; ends the fade (stopping a fade to
 // 0) when its time is up.

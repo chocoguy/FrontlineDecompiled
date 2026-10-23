@@ -54,7 +54,7 @@ static bool g_bReady;
 static bool g_bCapture;
 
 // At each retrace: shows the finished frame, if one is waiting.
-void CScreen::VBlankHandler(unsigned long) {
+void CScreen::VBlankHandler(u32) {
     CScreen* screen = g_pScreen;
     g_FrameNum++;
     if (screen != NULL && g_bSwap) {
@@ -170,6 +170,7 @@ int CScreen::Flip() {
 // that took, and switches to the other frame buffer. Returns the retraces.
 int CScreen::Wait() {
     while (g_bSwap == true) {
+        SPIN_WAIT();
     }
     u32 retraces = g_FrameNum - g_WaitFrameNum;
     g_WaitFrameNum = g_FrameNum;

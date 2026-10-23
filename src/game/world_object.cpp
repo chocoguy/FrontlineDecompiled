@@ -28,6 +28,14 @@
 #define NUM_CACHE_BLOCKS 4
 #define READ_CHUNK 524288.0f   // bytes read per frame (scaled by the frame time)
 
+// A .cpt or .cdb file's size, its second word. The headers are big-endian
+// until CCompartment::Init swaps them natively.
+#ifdef FRONTLINE_NATIVE
+#define FILE_SIZE_WORD(header) ((int)__builtin_bswap32(((u32*)(header))[1]))
+#else
+#define FILE_SIZE_WORD(header) (((int*)(header))[1])
+#endif
+
 // Streaming states (SRequest::m_state).
 enum {
     STREAM_GET_BLOCK,
@@ -273,7 +281,7 @@ void CWorldObject::ServiceDataStreamer(float dt) {
             break;
         case STREAM_OPEN_CPT: {
             char name[0x80];
-            req.m_pos = (char*)(((u32)req.m_pos + 0x7F) & ~0x7F);
+            req.m_pos = (char*)(((uptr)(req.m_pos) + 0x7F) & ~0x7F);
             req.m_offset = 0;
             req.m_cpt = (CPTHeader*)req.m_pos;
             req.m_state = STREAM_READ_CPT;
@@ -292,9 +300,9 @@ void CWorldObject::ServiceDataStreamer(float dt) {
                 ASYNCFILE_release(req.m_read, NULL, &bytes);
                 req.m_pos += bytes;
                 req.m_offset += bytes;
-                int size = ((int*)req.m_cpt)[1];
+                int size = FILE_SIZE_WORD(req.m_cpt);
                 m_loadProgress += (float)bytes / (float)size;
-                if ((int)(req.m_pos - (char*)req.m_cpt) < ((int*)req.m_cpt)[1]) {
+                if ((int)(req.m_pos - (char*)req.m_cpt) < FILE_SIZE_WORD(req.m_cpt)) {
                     req.m_state = STREAM_READ_CPT;
                 } else {
                     FILESYS_closesync(req.m_file, 100);
@@ -306,7 +314,7 @@ void CWorldObject::ServiceDataStreamer(float dt) {
             break;
         case STREAM_OPEN_CDB: {
             char name[0x80];
-            req.m_pos = (char*)(((u32)req.m_pos + 0xF) & ~0xF);
+            req.m_pos = (char*)(((uptr)(req.m_pos) + 0xF) & ~0xF);
             req.m_offset = 0;
             req.m_cdb = (CDB*)req.m_pos;
             req.m_state = STREAM_READ_CDB;
@@ -326,9 +334,9 @@ void CWorldObject::ServiceDataStreamer(float dt) {
                 ASYNCFILE_release(req.m_read, &status, &bytes);
                 req.m_pos += bytes;
                 req.m_offset += bytes;
-                int size = ((int*)req.m_cdb)[1];
+                int size = FILE_SIZE_WORD(req.m_cdb);
                 m_loadProgress += (float)bytes / (float)size;
-                if ((int)(req.m_pos - (char*)req.m_cdb) < ((int*)req.m_cdb)[1]) {
+                if ((int)(req.m_pos - (char*)req.m_cdb) < FILE_SIZE_WORD(req.m_cdb)) {
                     req.m_state = STREAM_READ_CDB;
                 } else {
                     FILESYS_closesync(req.m_file, 100);
@@ -464,6 +472,7 @@ int CWorldObject::BeginUpdate(float dt) {
     CVector3 max;
     m_volume.GetExtents(min, max);
     SetExtents(min, max);
+    END_RETURN_NOTHING
 }
 
 void CWorldObject::Draw(CDrawContext& ctx) {

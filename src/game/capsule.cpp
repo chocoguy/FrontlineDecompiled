@@ -30,7 +30,7 @@ static inline void ClosestAxisPoint(const CVolCapsule& capsule, CVector3 point, 
 CVolCapsule::~CVolCapsule() {}
 
 int CVolCapsule::Create() const {
-    return (int)new CVolCapsule;
+    return (int)PTR_TO_ADDR(new CVolCapsule);
 }
 
 void CVolCapsule::TransformedCopy(const IVolume& volume, const CMatrix& m) {
