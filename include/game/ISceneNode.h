@@ -90,13 +90,10 @@ public:
 // still declare these words themselves.
 class CSceneNodeData : public ISceneNode {
 public:
-    // One entry of the scene's sorted extent lists (sweep and prune): a list
-    // node whose value starts with the coordinate.
-    struct SExtentLink {
-        SExtentLink* prev;
-        SExtentLink* next;
-        f32 m_value;
-    };
+    // One entry of the scene's sorted extent lists (sweep and prune), which
+    // the node keeps current: CScene::AddNodeExtents hands out the address of
+    // each list entry's SExtent, and the node writes only m_value.
+    typedef ISceneNode::SExtent SExtentLink;
 
     CSceneNodeData() {
         m_sceneLinks[0] = 0;

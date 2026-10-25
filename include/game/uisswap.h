@@ -156,7 +156,7 @@ inline bool ScrDataFromBigEndian(UISScrData_t* data) {
             words.swap32(str + f * 4);
         }
         UISString_t* s = (UISString_t*)(base + str);
-        words.claim(s->text.addr(), s->maxLength);
+        words.claim(s->text.addr(), s->maxLength + 1);  // and its terminator
     }
 
     // Everything else: control state, variables, the string reference table.

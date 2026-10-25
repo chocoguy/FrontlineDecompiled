@@ -15,8 +15,15 @@ class IVolume;
 // The collision-database polygon a contact lies on (partial).
 struct SClsnPoly {
     /* 0x0 */ u8 unk_0x0[0xC];
+#ifdef FRONTLINE_NATIVE
+    // CDBTri's word at 0xC (cdb.h). clang allocates bitfields from the low
+    // bit, so the surface type comes last to be the word's top 11 bits.
+    /* 0xC */ u32 m_flags : 21;
+    /* 0xC */ s32 m_surfaceType : 11;  // CSurfaceType index
+#else
     /* 0xC */ s16 m_surfaceType : 11;  // CSurfaceType index
     /* 0xC */ s16 m_flags : 5;
+#endif
 
     // The texture swap index: an 11-bit signed field straddling the two
     // halfwords at 0xC (bits 11..21 of the word), -1 for none.

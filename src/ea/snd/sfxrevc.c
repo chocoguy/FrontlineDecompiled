@@ -2,7 +2,13 @@
 #include <string.h>
 
 // State size of each graph module type.
-static s32 filtersizetable[10] = {0x20, 0x28, 0x58, 0x58, 0x58, 0x40, 0x20, 0x34, 0x24, 0x28};
+// Each filter's state size, by type.
+static s32 filtersizetable[10] = {
+    GC_SIZE(0x20, sizeof(SRCSTATE)),   GC_SIZE(0x28, sizeof(LPFRCSTATE)), GC_SIZE(0x58, sizeof(LPFSTATE)),
+    GC_SIZE(0x58, sizeof(HPFSTATE)),   GC_SIZE(0x58, sizeof(BPFSTATE)),   GC_SIZE(0x40, sizeof(RESONSTATE)),
+    GC_SIZE(0x20, sizeof(AMPLFSTATE)), GC_SIZE(0x34, sizeof(ECHOSTATE)),  GC_SIZE(0x24, sizeof(MIXERSTATE)),
+    GC_SIZE(0x28, sizeof(SPLITSTATE)),
+};
 
 // phead slot (1-based mixer output) of a module's channel, by [valid outputs - 1][outputs - 1]
 // [channel - 1].

@@ -163,6 +163,61 @@ void UISSetColorAdditive(float r, float g, float b, float a) {
     _AdditiveColorFactor[2] = b;
 }
 
+#ifdef FRONTLINE_NATIVE
+// The console passes the arguments to sprintf as plain words, which only
+// works with the PowerPC calling convention (a %s gets a 32-bit address, a %f
+// two words). Natively each conversion is formatted with its own typed
+// argument, consuming the parameters as UISStringFormat's scan does.
+static void UISFormatNative(char* out, u32 size, const char* text, UISParam_t* params) {
+    u32 o = 0;
+    int p = 0;
+    u32 i = 0;
+    while (text[i] != 0 && o + 1 < size) {
+        if (text[i] != '%') {
+            out[o++] = text[i++];
+            continue;
+        }
+        u32 start = i++;
+        while (text[i] != 0 && strchr("%sfdcx", text[i]) == NULL) {
+            i++;
+        }
+        if (text[i] == 0) {
+            break;
+        }
+        char spec[16];
+        u32 n = i - start + 1;
+        if (n >= sizeof(spec)) {
+            n = sizeof(spec) - 1;
+        }
+        memcpy(spec, text + start, n - 1);
+        spec[n - 1] = text[i];
+        spec[n] = 0;
+        int written;
+        switch (text[i]) {
+        case 's': {
+            UISString_t* str = ADDR_TO_PTR(UISString_t, params[p++].value);
+            written = snprintf(out + o, size - o, spec, str != NULL ? (const char*)str->text : "");
+            break;
+        }
+        case 'f':
+            written = snprintf(out + o, size - o, spec, (double)*(float*)&params[p++].value);
+            break;
+        case '%':
+            written = snprintf(out + o, size - o, "%%");
+            break;
+        default:
+            written = snprintf(out + o, size - o, spec, (int)params[p++].value);
+            break;
+        }
+        if (written > 0) {
+            o += (u32)written < size - o ? (u32)written : size - o - 1;
+        }
+        i++;
+    }
+    out[o] = 0;
+}
+#endif
+
 // Supports %s (UISString_t param), %f (float param), %d, %c, %x. The
 // arguments are passed to sprintf as plain words, as in the original.
 void UISStringFormat(UISScrData_t*, UISString_t* dst, UISString_t* fmt, unsigned long,
@@ -220,9 +275,13 @@ void UISStringFormat(UISScrData_t*, UISString_t* dst, UISString_t* fmt, unsigned
     if (dst != NULL) {
         char* out = dst->text;
         u32 max = dst->maxLength;
+#ifdef FRONTLINE_NATIVE
+        UISFormatNative(Temp, sizeof(Temp), text, params);
+#else
         sprintf(Temp, text, args[0], args[1], args[2], args[3], args[4], args[5], args[6],
                 args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14],
                 args[15], args[16], args[17], args[18], args[19]);
+#endif
         strncpy(out, Temp, max);
         out[max] = '\0';
     }

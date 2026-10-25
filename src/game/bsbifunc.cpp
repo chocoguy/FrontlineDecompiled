@@ -178,10 +178,14 @@ void BIFunc_AIResetTargetMatchList(int** sp, void* self) {
     BIFPop(sp);
 }
 
+// A match list argument is the address of a 32-bit slot holding the list's
+// address: a pointer in the match list struct (CAIDoodad) or a script variable.
+#define BIF_MATCH_LIST(slot) ADDR_TO_PTR(aistatus_match, *(slot))
+
 void BIFunc_AISetupTargetMatchList(int** sp, void* self) {
     CAIFilterObject* filter = SelfFilter(self);
-    filter->SetupTargetMatchList((aifilter_target_mode)BIFArg(sp, 0), *ADDR_TO_PTR(aistatus_match*, BIFArg(sp, 1)),
-                                 BIFArg(sp, 2));
+    filter->SetupTargetMatchList((aifilter_target_mode)BIFArg(sp, 0),
+                                 BIF_MATCH_LIST(ADDR_TO_PTR(u32, BIFArg(sp, 1))), BIFArg(sp, 2));
     BIFPop(sp);
 }
 
@@ -227,7 +231,11 @@ void BIFunc_AISetHearingRadius(int** sp, void* self) {
 }
 
 void BIFunc_AIGetSoldierMatchListStruct(int** sp, void* self) {
+#ifdef FRONTLINE_NATIVE
+    int list = (int)PTR_TO_ADDR(&((ISceneNode*)self)->GetAIDoodad()->m_pBuffer0);
+#else
     int list = (int)PTR_TO_ADDR(((u8*)((ISceneNode*)self)->GetAIDoodad() + 0x10));
+#endif
     BIFPop(sp);
     BIFReturn(sp, list);
 }
@@ -1557,15 +1565,15 @@ void BIFunc_RegisterTargetSearch(int** sp, void* self) {
     int mode = BIFArg(sp, 0);
     float range = BIFArgF(sp, 1);
     float fov = BIFArgF(sp, 2);
-    aistatus_match** list = ADDR_TO_PTR(aistatus_match*, BIFArg(sp, 3));
+    u32* list = ADDR_TO_PTR(u32, BIFArg(sp, 3));
     int count = BIFArg(sp, 4);
     filter->SetTargetMode((aifilter_target_mode)0);
     switch (mode) {
     case 2:
-        filter->m_pAIObject->SetupFieldOfViewModeList(*list, count, range, fov);
+        filter->m_pAIObject->SetupFieldOfViewModeList(BIF_MATCH_LIST(list), count, range, fov);
         break;
     case 3:
-        filter->m_pAIObject->SetupLineOfSightModeList(*list, count, range);
+        filter->m_pAIObject->SetupLineOfSightModeList(BIF_MATCH_LIST(list), count, range);
         break;
     }
     BSScheduleRegistrationRecord_struct* rec =

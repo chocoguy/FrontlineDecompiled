@@ -12,7 +12,7 @@ void SNDSYSI_100hzserver() {
         sndgs.client100hz[i]();
     }
 
-    for (i = 0, offset = 0; i < sndgs.numVoices; i++, offset += 0x80) {
+    for (i = 0, offset = 0; i < sndgs.numVoices; i++, offset += GC_SIZE(0x80, sizeof(SNDVOICE))) {
         SNDVOICE* v = (SNDVOICE*)((u8*)sndgs.voices + offset);
         int changed;
 

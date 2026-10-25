@@ -146,10 +146,10 @@ void SNDSTRMI_parsedata(SNDSTREAMCHANNEL* s, STREAMCHUNKHDR* chunk) {
     u8* base;
     int i;
 
-    frame.samples = chunk->samples;
+    frame.samples = CHUNK_WORD(chunk->samples);
     base = (u8*)&chunk->offsets[0] + s->format.channels * 4;
     for (i = 0; i < s->format.channels; i++) {
-        frame.data[i] = base + chunk->offsets[i];
+        frame.data[i] = base + CHUNK_WORD(chunk->offsets[i]);
     }
     req = s->current;
     if (frame.samples == 0) {
@@ -244,7 +244,7 @@ void SNDSTRMI_service() {
             n--;
             chunk = (STREAMCHUNKHDR*)STREAM_get(s->stream);
             if (chunk != NULL) {
-                u32 tag = chunk->tag;
+                u32 tag = CHUNK_WORD(chunk->tag);
                 if (tag == STREAMTAG_DATA) {
                     SNDSTRMI_parsedata(sndss[i], chunk);
                     more = 1;

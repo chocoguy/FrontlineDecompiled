@@ -466,7 +466,7 @@ void CCompartment::DrawNode(CPTNode& node, unsigned long planes, dwi::fast_vec<C
 
     dwi::fast_vec<CLight*> lights(2);
     if (parentLights.size() != 0) {
-        CLight** buffer = (CLight**)g_SPRStack.Alloc(parentLights.size() * 4);
+        CLight** buffer = (CLight**)g_SPRStack.Alloc(parentLights.size() * sizeof(CLight*));
         lights.reserve(buffer, parentLights.size());
         for (CLight** it = parentLights.begin(); it != parentLights.end(); it++) {
             CLight* light = *it;
@@ -546,7 +546,7 @@ void CCompartment::DrawNode(CPTNode& node, unsigned long planes, dwi::fast_vec<C
     if (node.m_children[1] != NULL) {
         DrawNode(*node.m_children[1], clipped, lights);
     }
-    g_SPRStack.Free(parentLights.size() * 4);
+    g_SPRStack.Free(parentLights.size() * sizeof(CLight*));
 }
 
 // Explosions advance the texture swaps of the triangles they reach (unless

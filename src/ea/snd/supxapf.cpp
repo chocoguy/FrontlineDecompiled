@@ -47,8 +47,8 @@ int SFILTER_unpackxapf(void* self, int frames, void* in, void* out, int flag) {
             s->data = ADDR_TO_PTR(u8, SNDPKTPLAYI_get(s->player, s->chan, &s->samples, &unused));
             if (s->data != NULL) {
                 SND::XAFSTATE state;
-                state.s1 = ((s16*)s->data)[0];
-                state.s2 = ((s16*)s->data)[1];
+                state.s1 = SAMPLE_S16(s->data);
+                state.s2 = SAMPLE_S16(s->data + 2);
                 s->dec->SetState(&state);
                 s->data += 4;
                 s->pos = 0;

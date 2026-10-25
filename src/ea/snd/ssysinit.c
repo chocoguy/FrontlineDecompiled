@@ -50,7 +50,7 @@ extern "C" int SNDSYSI_init(void* mem, int size, int) {
     SNDI_randomseed(sndgs.opts.caps.seed);
     SNDI_mutexalloc();
     SNDSYS_entercritical();
-    sndgs.voices = (SNDVOICE*)SNDMEMI_allocz(sndgs.numVoices << 7);
+    sndgs.voices = (SNDVOICE*)SNDMEMI_allocz(GC_SIZE(sndgs.numVoices << 7, sndgs.numVoices * sizeof(SNDVOICE)));
     sndgs.banks = (SNDBANKSLOT*)SNDMEMI_allocz(sndgs.opts.caps.maxBanks * GC_SIZE(0xC, sizeof(SNDBANKSLOT)));
     SNDSYS_leavecritical();
     sndgs.serverTicks = 0;

@@ -15,6 +15,15 @@ struct STREAMCHUNKHDR {
 #define STREAMTAG_HEADER 0x5343486C  // 'SCHl'
 #define STREAMTAG_DATA 0x5343446C    // 'SCDl'
 
+// The chunk fields as the console reads them: big-endian words. (The tag and
+// size are written little-endian, which STREAM reads with getle; read
+// big-endian, the tag spells its name.)
+#ifdef FRONTLINE_NATIVE
+#define CHUNK_WORD(w) __builtin_bswap32(w)
+#else
+#define CHUNK_WORD(w) (w)
+#endif
+
 // One queued file or memory image. size 0x28
 struct SNDSTREAMREQUEST {
     /* 0x00 */ SNDLINKNODE link;

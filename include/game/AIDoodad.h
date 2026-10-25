@@ -6,6 +6,9 @@
 
 #include "types.h"
 #include "game_types.h"
+#ifdef FRONTLINE_NATIVE
+#include <stddef.h>
+#endif
 
 class CAIFilterObject;
 class CStaticObject;
@@ -24,10 +27,12 @@ public:
     /* 0x08 */ u32 m_fireFlags;
     /* 0x0C */ u32 m_prevFireFlags;
     // Four pointers to the inline buffers below (set by the constructor).
-    /* 0x10 */ void* m_pBuffer0;
-    /* 0x14 */ void* m_pBuffer1;
-    /* 0x18 */ void* m_pBuffer2;
-    /* 0x1C */ void* m_pBuffer3;
+    // Scripts read this block by offset as the soldier's match list struct
+    // (BIFunc_AIGetSoldierMatchListStruct), so the pointers are 32-bit.
+    /* 0x10 */ PTR32(void) m_pBuffer0;
+    /* 0x14 */ PTR32(void) m_pBuffer1;
+    /* 0x18 */ PTR32(void) m_pBuffer2;
+    /* 0x1C */ PTR32(void) m_pBuffer3;
     /* 0x20 */ u8 m_buffer0[0xC];
     /* 0x2C */ u8 m_buffer1[0xC];
     /* 0x38 */ u8 m_buffer2[0xC];
@@ -35,5 +40,9 @@ public:
     void Init();  // 0x800590F4
     CAIDoodad();  // 0x80059140
 };
+#ifdef FRONTLINE_NATIVE
+static_assert(offsetof(CAIDoodad, m_buffer3) - offsetof(CAIDoodad, m_pBuffer0) == 0x34,
+              "the match list struct keeps its console layout");
+#endif
 
 #endif

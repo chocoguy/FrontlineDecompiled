@@ -25,6 +25,11 @@
 #include "stdio.h"
 #include "stdlib.h"
 #include "string.h"
+#ifdef FRONTLINE_NATIVE
+#include <stddef.h>
+
+#include "native/swap.h"
+#endif
 
 int g_NumPlayers = 1;
 static const char* g_ConfigFilename = "debug_REMOVE_FROM_FINAL.INI";
@@ -1354,6 +1359,36 @@ static inline u32 ShellDataCRC(const u8* data, u32 size) {
     return crc.Result();
 }
 
+#ifdef FRONTLINE_NATIVE
+// The save game on the card is the console's bytes (big-endian, the CRC taken
+// over them), so saves move between this port, Dolphin and a GameCube. Every
+// field in it is a byte or a 32-bit word: swapping the word ranges converts it
+// either way.
+static void SwapShellSave(u8* data) {
+    struct Words {
+        u8* data;
+        void operator()(u32 offset, u32 size) const { NativeSwap32s(data + offset, size / 4); }
+    } words = {data};
+    words(offsetof(CShellMenu, m_mission), 8);  // and m_stage
+    words(offsetof(CShellMenu, m_careerStats), offsetof(SLevelStats, m_bestWeapon));
+    words(offsetof(CShellMenu, m_levelStats), offsetof(SLevelStats, m_bestWeapon));
+    words(offsetof(CShellMenu, field_0x21C), 4);
+    for (u32 i = 0; i < 6 * 4; i++) {
+        words(offsetof(CShellMenu, m_finishedLevels) + i * sizeof(SFinishedLevel), offsetof(SFinishedLevel, m_finished));
+    }
+    words(offsetof(CShellMenu, field_0x13F8), 4);
+    words(offsetof(CShellMenu, m_mpEnabled), offsetof(CShellMenu, m_players) - offsetof(CShellMenu, m_mpEnabled));
+    for (u32 i = 0; i < 4; i++) {
+        words(offsetof(CShellMenu, m_players) + i * sizeof(CShellPlayerConfig), offsetof(CShellPlayerConfig, m_name));
+    }
+    words(offsetof(CShellMenu, m_mpControllerPort), 4 * 4);
+    for (u32 i = 0; i < 4; i++) {
+        words(offsetof(CShellMenu, m_mpStats) + i * sizeof(MPPlayerStats), offsetof(MPPlayerStats, m_star));
+    }
+    words(offsetof(CShellMenu, m_activeWindows), SHELL_SAVE_SIZE - offsetof(CShellMenu, m_activeWindows));  // and m_crc
+}
+#endif
+
 // Replaces the save game in `slot` with the shell's data and points the
 // preferences at it. -1: the card failed (erase/program error).
 int CShellMenu::MemoryCardSaveGame(int port, int slot, char* name) {
@@ -1379,7 +1414,18 @@ int CShellMenu::MemoryCardSaveGame(int port, int slot, char* name) {
     if (!m_pMemoryCard->Open(newSlot, true)) {
         return 0;
     }
+#ifdef FRONTLINE_NATIVE
+    u8* image = new u8[SHELL_SAVE_SIZE];
+    memcpy(image, this, SHELL_SAVE_SIZE);
+    SwapShellSave(image);
+    u32 crc = __builtin_bswap32(ShellDataCRC(image, SHELL_CRC_SIZE));
+    memcpy(image + SHELL_CRC_SIZE, &crc, sizeof(crc));
+    bool written = m_pMemoryCard->Write(image, SHELL_SAVE_SIZE);
+    delete[] image;
+    if (!written) {
+#else
     if (!m_pMemoryCard->Write((u8*)this, SHELL_SAVE_SIZE)) {
+#endif
         m_pMemoryCard->Close();
         return 0;
     }
@@ -1480,8 +1526,14 @@ int CShellMenu::MemoryCardLoadGame(int port, unsigned int slot) {
     m_languageSuffix = "";
     u32 crc = 0;
     memcpy(&crc, data + SHELL_CRC_SIZE, sizeof(crc));
+#ifdef FRONTLINE_NATIVE
+    crc = __builtin_bswap32(crc);
+#endif
     if (CheckDataCRC(data, size - 4, crc)) {
         s8 soundMode = m_soundMode;
+#ifdef FRONTLINE_NATIVE
+        SwapShellSave(data);
+#endif
         memcpy(this, data, size);
         if (m_soundMode == 2 || soundMode == 2) {
             m_soundMode = soundMode;

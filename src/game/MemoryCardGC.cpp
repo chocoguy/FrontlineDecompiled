@@ -217,11 +217,17 @@ bool CMemoryCard::SavePrefs(unsigned char* data, unsigned int size) {
     return true;
 }
 
+// The header writes send the file's whole length (two sectors) from a
+// one-sector buffer: on the console the second sector gets whatever follows
+// (and is rewritten next). Natively that can run off the end of the stack, so
+// the buffers cover both sectors there.
+#define CREATE_BUFFER_SIZE GC_SIZE(0x2000, 0x4000)
+
 // Writes `stat.length` bytes from a sector-sized buffer (as the original;
 // the second sector gets whatever follows).
 bool CMemoryCard::CreatePrefs() {
     static u8 HeaderC8[HEADER_SIZE] = "Medal Of Honor Frontline\n\0\0\0\0\0\0\0Preference File\n";
-    u8 buffer[0x2000] __attribute__((aligned(32)));
+    u8 buffer[CREATE_BUFFER_SIZE] __attribute__((aligned(32)));
     if (MountPortIfRequired(m_port) != 1) {
         return false;
     }
@@ -512,7 +518,7 @@ bool CMemoryCard::Format() {
 // (comment with `name`, icon).
 bool CMemoryCard::CreateNewSaveGame(unsigned int* slot, char* name) {
     static u8 HeaderC8[HEADER_SIZE] = "Medal Of Honor Frontline\n\0\0\0\0\0\0\0Save: \n";
-    static u8 CARDData[0x2000] __attribute__((aligned(32)));
+    static u8 CARDData[CREATE_BUFFER_SIZE] __attribute__((aligned(32)));
     if (MountPortIfRequired(m_port) != 1) {
         return false;
     }

@@ -144,10 +144,11 @@ void CThrownBullet::SomebodyCaughtYou() {
 
 // Script info for the grenade reaction events.
 struct SGrenadeInfo {
-    /* 0x0 */ BSObject* m_thrower;
-    /* 0x4 */ CThrownBullet* m_grenade;
+    /* 0x0 */ PTR32(BSObject) m_thrower;
+    /* 0x4 */ PTR32(CThrownBullet) m_grenade;
     /* 0x8 */ int m_numFriends;  // other soldiers nearby on the same side
 };
+FILE_SIZE_ASSERT(SGrenadeInfo, 0xC);  // event data; scripts read it by offset
 
 static inline CAIObject* SoldierAI(CSoldierObject* soldier) {
     return soldier->GetAIDoodad()->m_pFilter->m_pAIObject;

@@ -114,10 +114,23 @@ void BSUtilShutdownScriptingSystem() {
     g_memSize = 0;
 }
 
+// The instance pools' element sizes are console bytes, where a thread takes
+// 0x20. Natively threads are bigger, and since a class's threads fit in its
+// element, scaling by the thread size covers them. Native elements are also
+// 8-byte aligned, for the threads' pointers.
+#define BS_POOL_SIZE(size) GC_SIZE(size, (size) * (int)sizeof(BSMachineThread_struct) / 0x20)
+#define BS_POOL_ALIGN GC_SIZE(0, 8)
+
 static inline void InitPool(BSUtilObjectInstanceMemoryAllocator& pool, int elementSize, int count) {
-    void* memory = BSUtilGetMemory(pool.ComputeNeededSize(elementSize, count, 0), 0);
-    pool.Init(memory, elementSize, count, 0);
+    void* memory = BSUtilGetMemory(pool.ComputeNeededSize(BS_POOL_SIZE(elementSize), count, BS_POOL_ALIGN), 0);
+    pool.Init(memory, BS_POOL_SIZE(elementSize), count, BS_POOL_ALIGN);
 }
+
+#ifdef FRONTLINE_NATIVE
+static inline int PoolNeededSize(int elementSize, int count) {
+    return g_pMemAllocators[0].ComputeNeededSize(BS_POOL_SIZE(elementSize), count, BS_POOL_ALIGN);
+}
+#endif
 
 // Sets up scripting for a level. With `reset` (restarting the level) the
 // script memory and the loaded classes are kept.
@@ -137,7 +150,11 @@ void BSUtilInitScriptingSystem(bool reset) {
     size += Align16(CreateObjectGetMemoryRequirements());
     g_memOffset = 0;
     // (The three instance pools below take 0x25EE0 bytes.)
+#ifdef FRONTLINE_NATIVE
+    g_memSize = size + PoolNeededSize(0x90, 800) + PoolNeededSize(0x114, 50) + PoolNeededSize(0x2F8, 30);
+#else
     g_memSize = size + 0x25EE0;
+#endif
     if (!reset) {
         g_pScriptMemory = (u8*)DWI_allocalign("Script memory", g_memSize, 0x10, 0x400);
     }

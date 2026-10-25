@@ -6,6 +6,14 @@
 #include "ea/snd/eaxadecf.h"
 #include "ea/snd/sdecmut.h"
 
+// A 16-bit sample (or decoder state) from sample data, which is big-endian:
+// banks and streams come from the disc as they are.
+#ifdef FRONTLINE_NATIVE
+#define SAMPLE_S16(p) ((s16)__builtin_bswap16(*(const u16*)(p)))
+#else
+#define SAMPLE_S16(p) (*(const s16*)(p))
+#endif
+
 // A processing node. Voices run a chain of these, sorted by `order`, from the decoder (the
 // source) to the output: process() reads `in`, writes `out` and returns the frames produced
 // (< 0 when the source has ended). Node state follows the header. size 0x1C

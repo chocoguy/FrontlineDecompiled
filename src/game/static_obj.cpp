@@ -30,12 +30,13 @@
 
 // Script event 0xC0 (collision damage) data.
 struct SCollisionDamageEvent {
-    /* 0x00 */ BSObject* m_source;
+    /* 0x00 */ PTR32(BSObject) m_source;
     /* 0x04 */ int m_damage;
     /* 0x08 */ int field_0x8;
     /* 0x0C */ int field_0xC;
     /* 0x10 */ int field_0x10;
 };
+FILE_SIZE_ASSERT(SCollisionDamageEvent, 0x14);  // scripts read it by offset
 
 // Speeds a path turn rate up towards `diff`, or slows it in time to stop.
 static inline void UpdateTurnRate(f32& rate, float diff, float accel, float max) {
