@@ -45,6 +45,9 @@
 #include "game/staticmesh.h"
 #include "math.h"
 #include "string.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/corpses.h"
+#endif
 
 // Pools.
 #define POOL_DESTRUCTABLES 0  // BSGO_Destructable, 200
@@ -331,8 +334,14 @@ void BSGO_Tank::Destroy() {
 void BSGO_Soldier::Destroy() {
     g_numActiveSoldiers--;
     Unlink(this, g_pGermanList);
-    m_soldier->CleanUp();
-    g_AnimObjFactory.ReleaseObject(m_soldier);
+#ifdef FRONTLINE_NATIVE
+    // Rewritten keeps the body, and cleans up the rest itself.
+    if (!NativeCorpseKeep(m_soldier))
+#endif
+    {
+        m_soldier->CleanUp();
+        g_AnimObjFactory.ReleaseObject(m_soldier);
+    }
     DestroyBSObject(m_object);
     m_object = NULL;
     m_soldier = NULL;

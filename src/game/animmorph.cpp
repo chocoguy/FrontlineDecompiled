@@ -11,7 +11,8 @@
 #include "game/endian.h"
 #include "game/matrix.h"
 
-static CAnimMatrixCache g_animMorphCache(0x10, 0x180, 8);
+// Natively a slot for every animated object, as g_animSkinnedCache.
+static CAnimMatrixCache g_animMorphCache(GC_SIZE(0x10, 0x80), 0x180, 8);
 
 CAnimMorph::CAnimMorph() {}
 

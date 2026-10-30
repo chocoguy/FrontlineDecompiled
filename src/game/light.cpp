@@ -95,13 +95,13 @@ void CLight::ResetClass() {
     ResetPool(g_AnimLightManager.m_instanced);
 }
 
-// Sets the level's animated-light table (for Create(unsigned long)).
+// Sets the level's animated-light table (for Create(u32)).
 void CLight::Register(void* lights, int count) {
     g_AnimLightManager.m_pLights = (MOH_animatedLight_Struct*)lights;
     g_AnimLightManager.m_numLights = count;
 }
 
-CLight* CLight::Create(unsigned long id) {
+CLight* CLight::Create(u32 id) {
     return g_AnimLightManager.Create(id);
 }
 
@@ -313,7 +313,7 @@ void CInstancedAnimLight::Destroy() {
 }
 
 // Starts an instance of the level light with this id, or returns NULL.
-CInstancedAnimLight* CAnimLightManager::Create(unsigned long id) {
+CInstancedAnimLight* CAnimLightManager::Create(u32 id) {
     for (int i = 0; i < m_numLights; i++) {
         if (id == m_pLights[i].id) {
             CInstancedAnimLight* light = AllocFromPool(m_instanced);

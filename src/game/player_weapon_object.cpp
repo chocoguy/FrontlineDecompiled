@@ -216,7 +216,14 @@ void CPlayerWeaponObject::Draw(CDrawContext& ctx) {
     g_Cam2clip = *ctx.m_pProj;
     float fov;
     if (m_pPlayer->m_fov > 0.0f) {
+#ifdef FRONTLINE_NATIVE
+        // Rewritten's wider field of view leaves the weapon as drawn at the
+        // original's; zooms (narrower than that) still apply.
+        float playerFov = m_pPlayer->m_fov < 35.0f ? m_pPlayer->m_fov : 35.0f;
+        fov = m_fovScale * (0.017453292f * playerFov);
+#else
         fov = m_fovScale * (0.017453292f * m_pPlayer->m_fov);
+#endif
     } else {
         fov = m_fovScale * (0.017453292f * DEFAULT_FOV);
     }
@@ -229,7 +236,11 @@ void CPlayerWeaponObject::Draw(CDrawContext& ctx) {
         g_Cam2clip.Transform(clip, m_flashPos);
         clip.x = clip.x / m_flashPos.z;
         clip.y = clip.y / m_flashPos.z;
+#ifdef FRONTLINE_NATIVE
+        clip.x = clip.x * -320.0f * g_nativeWideScale;  // widescreen: the wider projection's screen
+#else
         clip.x = clip.x * -320.0f;
+#endif
         float sy = clip.y * 224.0f;
         clip.y = sy;
         if (g_NumPlayers == 2) {
@@ -274,7 +285,12 @@ void CPlayerWeaponObject::Draw(CDrawContext& ctx) {
         float far = camera->m_far;
         float near = camera->m_near;
         float y = tan(fov * CCamera::ASPECT_4x3);
+#ifdef FRONTLINE_NATIVE
+        // Widescreen: as wide as the view (CCamera::SetPerspective).
+        proj.Perspective(tan(fov) * g_nativeWideScale, y, g_fNearMultiplier * near, far);
+#else
         proj.Perspective(tan(fov), y, g_fNearMultiplier * near, far);
+#endif
     } else {
         // Split screen: half height.
         float far = camera->m_far;

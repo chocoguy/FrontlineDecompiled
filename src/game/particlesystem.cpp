@@ -320,14 +320,14 @@ void CParticleSystem::Register(ShapeFile* shape) {
     AddTextureBin(new CParticleSystemTextureBin(shape));
 }
 
-// Sets the level's particle table (for Create(unsigned long)).
+// Sets the level's particle table (for Create(u32)).
 void CParticleSystem::Register(void* particles, int count) {
     g_ParticleSystemManager.m_pParticles = (MOH_particle_Struct*)particles;
     g_ParticleSystemManager.m_numParticles = count;
 }
 
 // Starts an instance of the level system with this id, or returns NULL.
-CParticleSystem* CParticleSystem::Create(unsigned long id) {
+CParticleSystem* CParticleSystem::Create(u32 id) {
     if (id == PARTICLE_NO_SYSTEM_ID) {
         return NULL;
     }

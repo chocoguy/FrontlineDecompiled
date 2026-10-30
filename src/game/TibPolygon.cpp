@@ -33,6 +33,9 @@ void TibPolyProcessFnc(void* p, unsigned long event, unsigned long numParams,
         if (data->library >= 0) {
             CSprite* sprite = LibraryInfo[data->library].images[data->imageIndex];
             if (sprite != NULL) {
+#ifdef FRONTLINE_NATIVE
+                NativeHintIconUnloaded(sprite);
+#endif
                 delete sprite;
                 LibraryInfo[data->library].images[data->imageIndex] = NULL;
             }
@@ -145,6 +148,9 @@ void TibPolyInit(TibPolyData_t* data) {
 #undef LOAD
 #undef NAME
     LibraryInfo[data->library].images[data->imageIndex] = sprite;
+#ifdef FRONTLINE_NATIVE
+    NativeHintIconLoaded(lib->imageNames[data->imageIndex], sprite);
+#endif
 }
 
 void TibPolyDraw(TibPolyData_t* data) {
@@ -194,8 +200,13 @@ void TibPolyDraw(TibPolyData_t* data) {
 
     if (data->flags & TIBPOLY_TEXTURED) {
         if (data->library >= 0) {
+#ifdef FRONTLINE_NATIVE
+            NativeHintIcon(LibraryInfo[data->library].images[data->imageIndex])
+                ->DrawPoly(verts, 4, (CSprite::EPolyPrimType)5);
+#else
             LibraryInfo[data->library].images[data->imageIndex]->DrawPoly(
                 verts, 4, (CSprite::EPolyPrimType)5);
+#endif
         }
     } else {
         CSprite::DrawPolyNoTex(verts, 4, (CSprite::EPolyPrimType)5);

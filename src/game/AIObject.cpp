@@ -5,6 +5,9 @@
 // nodes or spline paths, takes cover points, and tells its script about
 // what happens through events.
 #include "game/AIObject.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/ai.h"
+#endif
 #include "game/AIFilter.h"
 #include "game/AISplinePath.h"
 #include "game/AIStatus.h"
@@ -168,6 +171,11 @@ CAIObject::~CAIObject() {
 }
 
 void CAIObject::RemoveFromGlobalList() {
+#ifdef FRONTLINE_NATIVE
+    if (NativeAIOn()) {
+        NativeAIRemoved(this);
+    }
+#endif
     CAIObject* prev = NULL;
     CAIObject* obj = g_paioAIObjectListStart;
     g_iAIObjectCount--;
@@ -225,13 +233,23 @@ CAIObject* CAIObject::GetGlobalListStart() {
 void CAIObject::ResetGlobalList() {
     g_paioAIObjectListStart = NULL;
     g_iAIObjectCount = 0;
+#ifdef FRONTLINE_NATIVE
+    if (NativeAIOn()) {
+        NativeAIReset();
+    }
+#endif
 }
 
 // Forgets having seen the target (the original's test is reversed: it
-// clears the flag within 3 seconds of the last sighting).
+// clears the flag within 3 seconds of the last sighting; Rewritten's AI
+// forgets 3 seconds after it, as intended).
 bool CAIObject::UpdateReactionTime() {
     if (m_pTarget == NULL) {
+#ifdef FRONTLINE_NATIVE
+        if (NativeAIOn() ? AINow() > 3.0f + m_lastSeenTime : 3.0f + m_lastSeenTime > AINow()) {
+#else
         if (3.0f + m_lastSeenTime > AINow()) {
+#endif
             m_targetSeen = 0;
         }
     } else if (m_targetSeen) {
@@ -248,12 +266,23 @@ void CAIObject::Init() {
     m_pNext = g_paioAIObjectListStart;
     g_paioAIObjectListStart = this;
     g_iAIObjectCount++;
+#ifdef FRONTLINE_NATIVE
+    if (NativeAIOn()) {
+        NativeAIAdded(this);
+    }
+#endif
 }
 
 // Whether a grenade thrown from here reaches the aim point: the launch
 // speed for that distance (with some error), or -1 if the arc is blocked or
 // the target is too close.
 float CAIObject::TestGrenadeShot(float) {
+#ifdef FRONTLINE_NATIVE
+    // Rewritten: arcs at three angles, and one enemy grenade at a time.
+    if (NativeAIOn()) {
+        return NativeAITestGrenadeShot(this);
+    }
+#endif
     float dist = m_position.GetDistanceXYReal(m_targetPosition) +
                  3.464f * (m_targetPosition.field_0x8 - (0.5f + m_position.field_0x8));
     if (dist < 10.0f) {
@@ -388,7 +417,12 @@ static inline void AdjustAimHeight(CAIObject* self) {
         self->m_targetPosition.field_0x8 += 1.2f;
         target = self->m_pTarget;
         if (target != NULL && target->IsCrouching()) {
+#ifdef FRONTLINE_NATIVE
+            // The original raises the aim for a crouching target; Rewritten lowers it.
+            self->m_targetPosition.field_0x8 += NativeAIOn() ? -0.8f : 1.2f;
+#else
             self->m_targetPosition.field_0x8 += 1.2f;
+#endif
         }
         break;
     case 8:
@@ -455,6 +489,11 @@ void CAIObject::UpdateTargetPosition() {
     m_targetPosition.field_0x0 += dist * m_aimError.m_pos.field_0x0;
     m_targetPosition.field_0x4 += dist * m_aimError.m_pos.field_0x4;
     m_targetPosition.field_0x8 += dist * m_aimError.m_pos.field_0x8;
+#ifdef FRONTLINE_NATIVE
+    if (NativeAIOn()) {
+        NativeAIAdjustAim(this, dt, dist);
+    }
+#endif
     m_targetUpdateTime = AINow();
 }
 
@@ -1458,12 +1497,22 @@ void CAIObject::SetCoverPoint(int index, bool checkUseful) {
         m_pCoverPoint = g_aigAIFilterGlobalObject.GetCoverPointByIndex(index);
         if (m_pCoverPoint != NULL) {
             m_coverType = m_pCoverPoint->GetAvailablePeekPosition();
+#ifdef FRONTLINE_NATIVE
+            if (NativeAIOn()) {
+                m_coverType = NativeAIChoosePeek(this, m_pCoverPoint, m_coverType);
+            }
+#endif
             CAIFilterRealVector3 pos;
             m_pCoverPoint->GetModifiedPosition(pos, (COVERPOINT_TYPE)m_coverType);
             if (!m_pCoverPoint->FlagAsOccupied((COVERPOINT_TYPE)m_coverType)) {
                 BSObjectTriggerEvent(GetScript(), AIEVT_COVER_LOST, NULL, NULL, false);
             }
             m_peekPosition = m_pCoverPoint->GetPeekLocation();
+#ifdef FRONTLINE_NATIVE
+            if (NativeAIOn()) {
+                m_peekPosition = NativeAIPeekLocation(m_pCoverPoint, m_coverType);
+            }
+#endif
             if (m_position.GetDistanceXYZReal(*(CAIFilterRealPosition*)&pos) < 0.3f) {
                 m_atCoverPoint = 1;
             }
@@ -1541,6 +1590,12 @@ void CAIObject::CheckCoverpointUsefulness() {
                 if (!m_pCoverPoint->ProvidesCover(*(CAIFilterRealPosition*)&pos, &m_pTarget->m_position, this)) {
                     BSObjectTriggerEvent(GetScript(), AIEVT_COVER_LOST, NULL, NULL, true);
                 }
+#ifdef FRONTLINE_NATIVE
+                // Rewritten: also when the target has been able to see it there.
+                else if (NativeAIOn() && NativeAICoverExposed(this, *(CAIFilterRealPosition*)&pos)) {
+                    BSObjectTriggerEvent(GetScript(), AIEVT_COVER_LOST, NULL, NULL, true);
+                }
+#endif
             }
         }
     }
@@ -2115,11 +2170,40 @@ void CAIObject::PropagateSoundToAllObjects(const CAIFilterSoundInfo& info, CAIOb
             } else {
                 data->field_0x1C = info.field_0x28;
             }
+#ifdef FRONTLINE_NATIVE
+            int delay = (int)MathFunRandomReal(10.0f, 60.0f);
+            if (NativeAIOn()) {
+                delay = NativeAIReactionFrames(delay);
+            }
+            BSRegisterTimerEvent(delay, info.m_type, obj->GetScript(), data, TIMER_KEEP_EARLIER);
+#else
             BSRegisterTimerEvent((int)MathFunRandomReal(10.0f, 60.0f), info.m_type, obj->GetScript(), data,
                                  TIMER_KEEP_EARLIER);
+#endif
         }
     }
 }
+
+#ifdef FRONTLINE_NATIVE
+// Rewritten's AI (native/ai.h): `obj` alone hears a sound, with the event
+// data a heard sound has.
+void NativeAITellHeard(CAIObject* obj, const CAIFilterSoundInfo& info, int delay) {
+    float dy = obj->m_position.field_0x4 - info.m_position.field_0x4;
+    float dx = obj->m_position.field_0x0 - info.m_position.field_0x0;
+    float dz = obj->m_position.field_0x8 - info.m_position.field_0x8;
+    float distSq = dz * dz + (dx * dx + dy * dy);
+    AISoundHeardData* data = (AISoundHeardData*)BSEventGetEventMemoryBlock(sizeof(AISoundHeardData));
+    data->m_position[0] = info.m_position.field_0x0;
+    data->m_position[1] = info.m_position.field_0x4;
+    data->m_position[2] = info.m_position.field_0x8;
+    data->m_source = info.m_sourceScript;
+    data->m_loudness = distSq > 0.01f ? info.m_volume * (1.0f / sqrtf(distSq)) : info.m_volume;
+    data->m_notFootstep = info.m_type != 0x33;
+    data->field_0x18 = info.field_0x2C;
+    data->field_0x1C = info.field_0x28;
+    BSRegisterTimerEvent(delay, info.m_type, obj->GetScript(), data, TIMER_KEEP_EARLIER);
+}
+#endif
 
 // The closest free mounted gun within 25 that faces the target (within 30
 // degrees) and has no enemy within 5 of it.

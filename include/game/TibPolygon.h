@@ -35,4 +35,15 @@ void TibPolyInit(TibPolyData_t*);  // 0x8008BFEC
 void TibPolyProcessFnc(void* data, unsigned long event, unsigned long numParams,
                        UISParam_t* params, UISParam_t* results);  // 0x8008C630
 
+#ifdef FRONTLINE_NATIVE
+class CSprite;
+
+// The button icons for the device in use (FrontlineRewritten's
+// game/native/hint_icons.cpp): Loaded gives an icon image a keyboard twin,
+// NativeHintIcon picks the one to draw, Unloaded drops the twin.
+void NativeHintIconLoaded(const char* name, CSprite* sprite);
+void NativeHintIconUnloaded(CSprite* sprite);
+CSprite* NativeHintIcon(CSprite* sprite);
+#endif
+
 #endif

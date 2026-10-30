@@ -1,5 +1,8 @@
 // CProjectileBullet: straight-flying rounds and their tracers.
 #include "game/projectilebullet.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/ai.h"
+#endif
 #include "game/bulletfactory.h"
 #include "game/collision.h"
 #include "game/SClsnContact.h"
@@ -327,6 +330,11 @@ int CProjectileBullet::AttemptUpdate(float dt) {
 int CProjectileBullet::BeginUpdate(float dt) {
     m_basePos = m_position;
     m_prevPos = m_basePos;
+#ifdef FRONTLINE_NATIVE
+    if (NativeAIOn()) {
+        NativeAIBulletFlying(this, dt);
+    }
+#endif
     field_0x94 = BIG_FLOAT;
     if (field_0x90 > 0.0f) {
         field_0x90 -= dt;

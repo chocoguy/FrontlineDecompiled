@@ -6,6 +6,9 @@
 // the world and mechanics, cover points and waypoints in the level's BSP
 // leaves, the A* path nodes, the spline paths and sound propagation.
 #include "game/AIFilter.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/ai.h"
+#endif
 #include "game/AIObject.h"
 #include "game/AIPlayerDoodad.h"
 #include "game/AIPlayerObject.h"
@@ -391,6 +394,12 @@ CCoverPoint* CAIFilterGlobal::GetClosestUsableCoverPoint(const _PropBSPLeaf* lea
 CCoverPoint* CAIFilterGlobal::ChooseCoverPointByType(const _PropBSPLeaf* leaf, const CAIFilterRealPosition& pos,
                                                      const CAIFilterRealPosition* threat, ECoverPointSelectionType type,
                                                      float maxDistSq, float maxThreatDistSq, CAIObject* ai) const {
+#ifdef FRONTLINE_NATIVE
+    // Rewritten: the same rules pick the candidates, a score the winner.
+    if (NativeAIOn() && ai != NULL) {
+        return NativeAIChooseCover(pos, threat, (int)type, maxDistSq, maxThreatDistSq, ai);
+    }
+#endif
     u8 team = AITeam(ai);
     float ty = threat->field_0x4 - pos.field_0x4;
     float tx = threat->field_0x0 - pos.field_0x0;
@@ -526,6 +535,11 @@ CCoverPoint* CAIFilterGlobal::ChooseCoverPointByType(const _PropBSPLeaf* leaf, c
 
 // A path node leading away from `threat`, within `dist`.
 bool CAIFilterObject::FindRunAwayPoint(const ISceneNode* threat, float dist, CAIFilterRealPosition* out) {
+#ifdef FRONTLINE_NATIVE
+    if (NativeAIOn() && NativeAIFindRunAwayPoint(m_pAIObject, threat, dist, out)) {
+        return true;
+    }
+#endif
     CAIObject* ai = m_pAIObject;
     CVector3 tp;
     threat->GetPosition(tp);
@@ -1175,6 +1189,15 @@ void CAIFilterPlayerObject::Update(float dt) {
             }
             float fov = other->m_objectFov;
             float range = 5.0f;
+#ifdef FRONTLINE_NATIVE
+            if (NativeAIOn()) {
+                // m_objectFov is only set by a script's field-of-view check.
+                if (!(fov > 0.001f && fov <= 3.1415927f)) {
+                    fov = 1.5707964f;
+                }
+                range = NativeAIProximityRange();
+            }
+#endif
             if (ai->m_field_0x730) {
                 range *= 0.5f;
             }

@@ -53,4 +53,12 @@ public:
 extern CInputManager g_inputMgr;  // 0x801EC80C
 
 extern KEYMAP g_config_keymap[];  // per-port keymaps, 0x104 bytes apart (KEYMAP is variable-sized)
+
+#ifdef FRONTLINE_NATIVE
+#include "native/hooks.h"
+
+// This frame's keyboard and mouse input on controller `dev` (mouse look, for
+// the player; the actions are already in the input events).
+const NativeInput& NativeFrameInput(int dev);
+#endif
 #endif

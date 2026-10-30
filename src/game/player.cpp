@@ -2189,7 +2189,7 @@ void CPlayerObject::Respawn() {
     m_recoilKick = 0.0f;
     field_0x7C0 = 0.0f;
     field_0x7C4 = 0;
-    m_fov = 35.0f;
+    m_fov = NORMAL_FOV;
     m_scopeFov = 35.0f;
     m_scopeView = 0;
     m_fovRate = 0.0f;
@@ -2308,7 +2308,7 @@ int CPlayerObject::Init() {
     m_recoilKick = 0.0f;
     field_0x7C0 = 0.0f;
     field_0x7C4 = 0;
-    m_fov = 35.0f;
+    m_fov = NORMAL_FOV;
     m_scopeFov = 35.0f;
     m_scopeView = 0;
     m_fovRate = 0.0f;
@@ -2575,6 +2575,31 @@ void CPlayerObject::SetUsingMountedMachineGun(bool on, CStaticObject* gun) {
 }
 
 // A screen-space quad of an overlay sprite (u, v, x, y per corner).
+#ifdef FRONTLINE_NATIVE
+static inline void SetQuadX(_spritepolyvert* v, float x0, float x1);
+
+// Widescreen: a full-view overlay's sides filled out to the screen's edges
+// with the texture's corner (black, as the sniper scope's side bars are).
+static void NativeOverlayMargins(CSprite* sprite, float left, float top, float right, float bottom) {
+    float m = g_nativeWideMargin;
+    if (m <= 0.0f || sprite == NULL) {
+        return;
+    }
+    _spritepolyvert v[4] = {
+        {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, {0x80, 0x80, 0x80, 0x80}},
+        {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, {0x80, 0x80, 0x80, 0x80}},
+        {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, {0x80, 0x80, 0x80, 0x80}},
+        {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, {0x80, 0x80, 0x80, 0x80}},
+    };
+    v[0].y = v[1].y = top;
+    v[2].y = v[3].y = bottom;
+    SetQuadX(v, left - m, left);
+    sprite->DrawPoly(v, 4, (CSprite::EPolyPrimType)5);
+    SetQuadX(v, right, right + m);
+    sprite->DrawPoly(v, 4, (CSprite::EPolyPrimType)5);
+}
+#endif
+
 static inline void SetQuadX(_spritepolyvert* v, float x0, float x1) {
     v[0].x = x0;
     v[1].x = x1;
@@ -2821,6 +2846,9 @@ void CPlayerObject::Draw(CDrawContext& ctx) {
                 current->m_pSprite0->DrawPoly(v, 4, (CSprite::EPolyPrimType)5);
             }
         }
+#ifdef FRONTLINE_NATIVE
+        NativeOverlayMargins(current->m_pSprite0, left, top, right, bottom);
+#endif
     }
     if (m_onMG && m_pMGWeapon != m_pMGCannon && (u8)m_pMGWeapon->GetMuzzleFlashStatus() && !g_cheats.field_0xB &&
         g_pStaticObjectMuzzleFlashPlayer != NULL) {
@@ -2872,6 +2900,29 @@ static inline bool AltControls(CPlayerObject* player) {
     }
     return g_Shell.Get_currentControllerSetting() == 2;
 }
+
+#ifdef FRONTLINE_NATIVE
+// Mouse look: this frame's mouse movement, as a look rate added to the
+// sticks' so camera shake and recoil treat both alike. The movement is scaled
+// by the zoom (the view's width relative to the normal view, NORMAL_FOV), so
+// the crosshair follows the mouse at any field of view. `limit`, when given, caps
+// the rate: a mounted gun turns no faster than with the stick.
+static void AddMouseLook(CPlayerObject* player, float dt, float limit, float& pitch, float& yaw) {
+    const NativeInput& in = NativeFrameInput(player->m_controllerPort);
+    if (dt <= 0.0f || (in.lookRight == 0.0f && in.lookUp == 0.0f)) {
+        return;
+    }
+    float scale = tanf(0.5f * 0.017453292f * player->m_fov) / tanf(0.5f * 0.017453292f * NORMAL_FOV);
+    float mouseYaw = -scale * in.lookRight / dt;
+    float mousePitch = -scale * in.lookUp / dt;
+    if (limit > 0.0f) {
+        mouseYaw = MathFunClamp<float>(mouseYaw, -limit, limit);
+        mousePitch = MathFunClamp<float>(mousePitch, -limit, limit);
+    }
+    yaw += mouseYaw;
+    pitch += mousePitch;
+}
+#endif
 
 // Mounted gun shaking while it fires.
 static float osc = 0.0f;
@@ -2962,16 +3013,16 @@ int CPlayerObject::BeginUpdate(float dt) {
         }
         TransitionFOV(m_scopeFov, 140.0f);
     } else if (weapon != NULL && weapon->m_bReloading) {
-        TransitionFOV(35.0f, 140.0f);
+        TransitionFOV(NORMAL_FOV, 140.0f);
     } else if (m_zoomed) {
         CPlayerWeaponObject* current = GetCurrentPlayerWeapon();
         if (current != NULL && (g_cheats.field_0x2 ? 3 : current->m_hideMode) == 2) {
             TransitionFOV(current->field_0x3184, 140.0f);
         } else {
-            TransitionFOV(35.0f, 140.0f);
+            TransitionFOV(NORMAL_FOV, 140.0f);
         }
     } else {
-        TransitionFOV(35.0f, 140.0f);
+        TransitionFOV(NORMAL_FOV, 140.0f);
     }
     m_wasZoomed = m_zoomed;
     int zoomInput = g_inputMgr.GetValue(m_controllerPort, INPUT_ZOOM);
@@ -3058,6 +3109,9 @@ int CPlayerObject::BeginUpdate(float dt) {
                 lookPitch = lookPitch * sens;
                 lookYaw = lookYaw * sens;
             }
+#ifdef FRONTLINE_NATIVE
+            AddMouseLook(this, dt, 0.0f, lookPitch, lookYaw);
+#endif
         } else {
             lookPitch = 0.0f;
             lookYaw = 0.0f;
@@ -3136,6 +3190,9 @@ int CPlayerObject::BeginUpdate(float dt) {
         int lookInput = g_Shell.Get_currentControllerSetting() == 2 ? INPUT_LOOK_ALT : INPUT_LOOK;
         lookPitch = m_mgCannonScale * ((0.0078125f * turn) * (invert * InputValue(this, lookInput)));
         lookYaw = m_mgCannonScale * ((0.0078125f * turn) * (float)-g_inputMgr.GetValue(m_controllerPort, INPUT_TURN));
+#ifdef FRONTLINE_NATIVE
+        AddMouseLook(this, dt, m_mgCannonScale * turn, lookPitch, lookYaw);
+#endif
         if (m_pMGWeapon == m_pMGCannon) {
             // The turret's turning sound.
             if (lookPitch == 0.0f && lookYaw == 0.0f) {
@@ -3277,6 +3334,9 @@ int CPlayerObject::BeginUpdate(float dt) {
         if (m_attachedKeepWeapon) {
             lookPitch = LOOK_RATE * (LookInvert(this) * InputValue(this, INPUT_LOOK));
             lookYaw = LOOK_RATE * (float)-g_inputMgr.GetValue(m_controllerPort, INPUT_TURN);
+#ifdef FRONTLINE_NATIVE
+            AddMouseLook(this, dt, 0.0f, lookPitch, lookYaw);
+#endif
         } else {
             lookPitch = 0.0f;
             lookYaw = 0.0f;

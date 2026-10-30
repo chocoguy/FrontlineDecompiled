@@ -6,7 +6,8 @@
 //
 //   0                              null
 //   [0x00010000, arena size)       the memory arena that holds every game heap
-//   [0x80000000, +image size)      the executable image (code, statics, literals)
+//   [0x80000000, +image size)      the game's image (code, statics, literals)
+//   then                           the platform layer's image (its statics)
 //
 // So `(u32)ptr` round-trips for heap and static data, alignment tests still
 // work (both bases are page aligned), and the platform layer can turn a DMA
@@ -65,7 +66,8 @@ static inline void* NativeAddrToPtr(uint32_t addr) {
     if (addr - NATIVE_IMAGE_ADDR < g_nativeImageSize) {
         return (void*)(g_nativeImageBase + (addr - NATIVE_IMAGE_ADDR));
     }
-    if (g_nativeArenaBase != 0 && g_nativeImageSize != 0) {
+    // Above the game's image: the platform's (slow path).
+    if (addr < NATIVE_IMAGE_ADDR && g_nativeArenaBase != 0 && g_nativeImageSize != 0) {
         return (void*)(g_nativeArenaBase + addr);
     }
     return NativeAddrToPtrSlow(addr);

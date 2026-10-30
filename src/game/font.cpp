@@ -106,8 +106,15 @@ void CFont::Link(CDmaTag* tags, CDmaPacket& packet) {
     f32 projection[4][4];
     f32 view[3][4];
     GXGetProjectionv(savedProjection);
+#ifdef FRONTLINE_NATIVE
+    // Widescreen: the 640 x 448 screen in the middle, the margins beyond it.
+    C_MTXOrtho(projection, 448.0f * g_viewport.m_top, 448.0f * g_viewport.m_bottom,
+               (640.0f + 2 * g_nativeWideMargin) * g_viewport.m_left - g_nativeWideMargin,
+               (640.0f + 2 * g_nativeWideMargin) * g_viewport.m_right - g_nativeWideMargin, 5.0f, 2000.0f);
+#else
     C_MTXOrtho(projection, 448.0f * g_viewport.m_top, 448.0f * g_viewport.m_bottom,
                640.0f * g_viewport.m_left, 640.0f * g_viewport.m_right, 5.0f, 2000.0f);
+#endif
     GXSetProjection(projection, GX_ORTHOGRAPHIC);
     PSMTXIdentity(view);
     view[2][3] = -1200.0f;
@@ -256,6 +263,9 @@ void CFont::DrawTextCentered(float y, const char* text) {
 }
 
 void CFont::DrawText(float x, float y, const char* text) {
+#ifdef FRONTLINE_NATIVE
+    x += g_nativeHudShift;
+#endif
     float sx = m_font->scaleX;
     float sy = m_font->scaleY;
     if (strlen(text) != 0) {

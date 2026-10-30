@@ -33,6 +33,9 @@ static float MP_PUM_TEXT_SCALE_Y_4P = 0.9f;
 #define PUM_BACK_VERT(u, v) {u, v, 0.0f, 0.0f, 0.0f, {0x80, 0x80, 0x80, 0x40}}
 
 void CUserMessageTable::Unload() {
+#ifdef FRONTLINE_NATIVE
+    NativePromptsUnloaded(this);
+#endif
     if (m_entries != NULL) {
         delete[] m_entries;
         m_entries = NULL;
@@ -78,6 +81,9 @@ void CUserMessageTable::Load(char* text, char* index) {
         m_entries[i].m_length = length;
         *end = 0;
     }
+#ifdef FRONTLINE_NATIVE
+    NativePromptsLoaded(this);
+#endif
 }
 
 CUserMessageTable::~CUserMessageTable() {
@@ -375,6 +381,11 @@ void PopUpMessageHandler::PopUpMessageHandler_Loop() {
     float dt = 0.016683351f * m_dt;
     float vpWidth = g_viewport.m_width;
     float vpHeight = g_viewport.m_height;
+#ifdef FRONTLINE_NATIVE
+    // Widescreen: the backgrounds reach the screen's edges.
+    left -= g_nativeWideMargin;
+    right += g_nativeWideMargin;
+#endif
     if (g_bInMultiplayerMode) {
         float x0 = (float)screenW * g_viewport.m_left;
         left = 10.0f * vpWidth + x0;

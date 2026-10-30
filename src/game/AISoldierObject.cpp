@@ -1,4 +1,7 @@
 #include "game/AISoldierObject.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/ai.h"
+#endif
 
 void* CAISoldierObject::operator new(unsigned long size, void* buffer) {
     return buffer;
@@ -18,6 +21,11 @@ CAISoldierObject::~CAISoldierObject() {}
 void CAISoldierObject::PreUpdate() {}
 
 void CAISoldierObject::Update(float dt) {
+#ifdef FRONTLINE_NATIVE
+    if (NativeAIOn()) {
+        NativeAISoldierUpdate(this);
+    }
+#endif
     if (UpdateReactionTime() && m_pTarget != NULL) {
         UpdateTargetPosition();
     }
@@ -163,6 +171,13 @@ CAIObject* CAISoldierObject::ChooseTarget(CAIObject* list, float sightRange) {
     if (current != NULL) {
         best = current;
         bestDist = TargetDistance(this, current) - 2.0f;
+#ifdef FRONTLINE_NATIVE
+        // Rewritten: a dead target, or one long out of sight, loses its
+        // preference to any target in sight.
+        if (NativeAIOn() && !NativeAIKeepTarget(this, current)) {
+            bestDist = 1e30f;
+        }
+#endif
     }
     for (CAIObject* obj = list; obj != NULL; obj = obj->m_pNext) {
         if (obj == this || obj == best) {

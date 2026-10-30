@@ -65,6 +65,9 @@
 #include <dolphin/pad.h>
 #include <dolphin/vi.h>
 #include "stdio.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/hooks.h"
+#endif
 
 u8 InternalFont[0x62B0] __attribute__((aligned(32))) = {
 #include "game/Moh2_InternalFont.inc"
@@ -82,7 +85,9 @@ CViewport g_mpViewports[6] = {
     CViewport(0.0f, 0.5f, 0.5f, 1.0f, 2),
     CViewport(0.5f, 0.5f, 1.0f, 1.0f, 3),
 };
-CRenderList theRenderList(0x3000, 2);
+// The frame's draw list, in 16-byte units. Natively its entries are bigger
+// (pointers), and a widescreen view queues more, so it has four times the room.
+CRenderList theRenderList(GC_SIZE(0x3000, 0xC000), 2);
 Pause g_Pause;
 CShellMenu g_Shell;
 CFadeIn g_FadeIn(CColor(0, 0, 0, 0x80), CColor(0, 0, 0, 0), 30.0f);
@@ -586,6 +591,13 @@ int main() {
     g_uiGameState &= ~GAMESTATE_IN_SHELL;
 
     LoadTheGame();
+#ifdef FRONTLINE_NATIVE
+    // Rewritten's widescreen, once the loading screen is done (split screen
+    // stays 4:3). Each level ends with a reboot, so the shell never sees it.
+    if (!g_bInMultiplayerMode) {
+        g_screen.NativeSetRenderWidth(NativeRenderWidth());
+    }
+#endif
     MUSIC_Start(0, 500, 0);
     AmbientTrack_Start();
     if (g_Shell.Get_currentMission() == 6 && g_Shell.Get_currentStage() == 1 && !g_bInMultiplayerMode) {
@@ -678,6 +690,11 @@ float GetGameTime() {
 }
 
 void SetFog(CColor& color, float start, float range) {
+#ifdef FRONTLINE_NATIVE
+    // Rewritten's draw distance: the fog as far out as the far plane.
+    start *= NativeDrawDistance();
+    range *= NativeDrawDistance();
+#endif
     g_fog.m_color = color;
     g_fog.m_start = start;
     g_fog.m_range = range;

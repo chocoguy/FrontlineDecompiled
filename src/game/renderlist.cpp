@@ -4,6 +4,9 @@
 #include "game/memory.h"
 #include "ea/real.h"
 #include "dolphin/gx.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/hooks.h"
+#endif
 
 bool g_bEmptyList = true;
 bool g_bClearRenderList = true;
@@ -25,6 +28,9 @@ static inline void Rewind(CRenderList* list) {
 }
 
 bool CRenderList::Finish() {
+#ifdef FRONTLINE_NATIVE
+    NativeDrawClass(NATIVE_DRAW_WORLD);
+#endif
     for (CRenderBin* bin = m_bins; bin != NULL; bin = bin->m_pNext) {
         FinishBin(bin);
     }

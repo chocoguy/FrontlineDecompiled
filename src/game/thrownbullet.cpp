@@ -1,5 +1,8 @@
 // CThrownBullet: grenades and other thrown rounds.
 #include "game/thrownbullet.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/ai.h"
+#endif
 #include "game/bulletfactory.h"
 #include "game/explosion.h"
 #include "game/collision.h"
@@ -171,6 +174,12 @@ void CThrownBullet::CheckEnemies() {
     float bestDist = 0.0f;
     BSGO_Basic* closest = NULL;
     int event = -1;
+#ifdef FRONTLINE_NATIVE
+    // Rewritten: soldiers near where it will land are warned while it flies.
+    if (NativeAIOn()) {
+        NativeAIWatchGrenade(this);
+    }
+#endif
     if (m_noticed) {
         return;
     }
@@ -214,7 +223,11 @@ void CThrownBullet::CheckEnemies() {
                 event = 0xA3;
                 break;
             }
+#ifdef FRONTLINE_NATIVE
+        } else if (d.z < 0.05f && speed < 0.05f && !(NativeAIOn() && NativeAIGrenadeWarned(this))) {
+#else
         } else if (d.z < 0.05f && speed < 0.05f) {
+#endif
             // Lying still on the ground nearby.
             float distSq = d.x * d.x + d.y * d.y;
             if (distSq < 9.0f) {

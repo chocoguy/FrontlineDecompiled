@@ -4,6 +4,9 @@
 // handler registrations, and the property reader scripts use to read their
 // trigger's level-editor data.
 #include "game/bsmachin.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/ai.h"
+#endif
 #include "game/BSGO_Basic.h"
 #include "game/bsbif.h"
 #include "game/bsfile.h"
@@ -197,6 +200,13 @@ void BSOpCodeFunc_BIFNCALL() {
     g_pBuiltInFunctions[g_iCurrentBIFIndex].m_func((int**)&g_piStackTop, g_pObj);
     g_piIP++;
 }
+
+#ifdef FRONTLINE_NATIVE
+// Rewritten's AI (native/ai.h): the BIFNCALL a built-in was called from.
+u32* NativeBSInstruction() {
+    return g_piIP;
+}
+#endif
 
 // Calls the function at the address in the next word; byte 2 is the number
 // of arguments already pushed.

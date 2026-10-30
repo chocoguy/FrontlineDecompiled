@@ -1,6 +1,11 @@
 // CScene: the scene graph, its update with collision sub-stepping, and
 // drawing.
 #include "game/scene.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/ai.h"
+#include "native/corpses.h"
+#include "native/hooks.h"
+#endif
 
 #ifdef FRONTLINE_NATIVE
 #include <stddef.h>
@@ -527,6 +532,13 @@ void CScene::Draw(CViewport& viewport, CScreen& screen, CRenderList&, CFog& fog)
     ctx.field_0xD8 = (uptr)&fog;
     ctx.m_pLights = (CLightDrawList*)&m_lights;
     ctx.m_pShadows = (CShadowDrawList*)&m_shadows;
+#ifdef FRONTLINE_NATIVE
+    {
+        f32 view[3][4];
+        camera->m_worldToCamera.GetGAMECUBEMatrix34(view);
+        NativeFrameView(view, camera->m_projection.m[0][0], camera->m_projection.m[1][1]);
+    }
+#endif
     camera->m_frustum.Set(*camera, screen, viewport);
     camera->m_frustum.Transform(camera->m_localToWorld);
 
@@ -558,6 +570,11 @@ void CScene::Draw(CViewport& viewport, CScreen& screen, CRenderList&, CFog& fog)
             node->Draw(ctx);
         }
     }
+#ifdef FRONTLINE_NATIVE
+    if (NativeCorpsesOn()) {
+        NativeCorpsesDraw(ctx);
+    }
+#endif
     m_world->DrawShadows(ctx);
     m_deferMods = false;
     RunModCommands(this);
@@ -603,6 +620,14 @@ void CScene::Update(float dt) {
     for (node = m_pFirst; node != NULL; node = View(node)->m_next) {
         node->UpdateAI(dt);
     }
+#ifdef FRONTLINE_NATIVE
+    if (NativeAIOn()) {
+        NativeAIDirectorUpdate();
+    }
+    if (NativeCorpsesOn()) {
+        NativeCorpsesUpdate(dt);
+    }
+#endif
     for (node = m_pFirst; node != NULL; node = View(node)->m_next) {
         node->CommitAI();
     }

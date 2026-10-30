@@ -12,6 +12,13 @@
 #include <dolphin/gx.h>
 #include <dolphin/vi.h>
 #include "stdio.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/hooks.h"
+
+float g_nativeWideScale = 1.0f;
+float g_nativeWideMargin = 0.0f;
+float g_nativeHudShift = 0.0f;
+#endif
 
 // SSH ("SHPS") image file header, as written by CScreenFieldMode::_Capture.
 struct SSHFileHeader {
@@ -112,7 +119,13 @@ CScreen* CScreen::SetCurrent() {
     DebugMsg("INTERLACED MODE");
     GXAdjustForOverscan(m_pRenderMode, &m_renderMode, 0, 16);
     m_pRenderMode = &m_renderMode;
+#ifdef FRONTLINE_NATIVE
+    // Room for a widescreen level's frames (NativeSetRenderWidth).
+    int fbWidth = NativeRenderWidth() > m_pRenderMode->fbWidth ? NativeRenderWidth() : m_pRenderMode->fbWidth;
+    int size = ((fbWidth + 15) & 0xFFF0) * m_pRenderMode->xfbHeight * 2;
+#else
     int size = ((m_pRenderMode->fbWidth + 15) & 0xFFF0) * m_pRenderMode->xfbHeight * 2;
+#endif
     m_frameBuffer1 = DWI_allocalign("FrameBuffer 1", size, 0x20, 0x400);
     m_frameBuffer2 = DWI_allocalign("FrameBuffer 2", size, 0x20, 0x400);
     m_pDrawBuffer = m_frameBuffer2;
@@ -145,6 +158,23 @@ CScreen* CScreen::SetCurrent() {
     GXInvalidateVtxCache();
     return g_prevScreen;
 }
+
+#ifdef FRONTLINE_NATIVE
+void CScreen::NativeSetRenderWidth(int width) {
+    if (width <= m_pRenderMode->fbWidth) {
+        return;
+    }
+    m_renderMode.fbWidth = width;
+    m_renderMode.viWidth = width;
+    VIConfigure(m_pRenderMode);
+    GXSetScissor(0, 0, width, m_pRenderMode->efbHeight);
+    GXSetDispCopySrc(0, 0, width, m_pRenderMode->efbHeight);
+    GXSetDispCopyDst(width, m_pRenderMode->xfbHeight);
+    SetFieldViewport(m_pRenderMode);
+    g_nativeWideScale = width / 640.0f;
+    g_nativeWideMargin = (width - 640) / 2.0f;
+}
+#endif
 
 // Copies the finished frame to the draw buffer (clearing the EFB) and queues
 // it to be shown at the next retrace.

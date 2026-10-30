@@ -10,7 +10,11 @@
 #include "game/matstack.h"
 #include "game/skelblend.h"
 
-static CAnimMatrixCache g_animSkinnedCache(0x10, 0x180, 0xC0);
+// The GPU reads a slot's matrices when the frame's render list is drawn, so
+// more characters drawn in a frame than slots draw with others' bones.
+// Natively there is a slot for every animated object the factory can hold,
+// with the bodies Rewritten keeps (native/corpses.h).
+static CAnimMatrixCache g_animSkinnedCache(GC_SIZE(0x10, 0x80), 0x180, 0xC0);
 
 CAnimSkinned::CAnimSkinned() {
     m_frame.numJoints = 0x50;

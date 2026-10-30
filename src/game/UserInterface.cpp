@@ -1141,6 +1141,10 @@ void UserInterface::Draw(float dt) {
     if (m_letterbox) {
         memcpy(TempVerts, LetterBoxVerts, sizeof(LetterBoxVerts));
         for (int k = 0; k < 8; k++) {
+#ifdef FRONTLINE_NATIVE
+            // Widescreen: the bars reach the screen's edges.
+            TempVerts[k].x += TempVerts[k].x == 0.0f ? -g_nativeWideMargin : g_nativeWideMargin;
+#endif
             TempVerts[k].x = TempVerts[k].x * g_screen.m_widthScale;
             TempVerts[k].y = TempVerts[k].y * g_screen.m_heightScale;
         }
@@ -1171,13 +1175,28 @@ void UserInterface::Draw(float dt) {
                 DrawScore();
             }
         } else {
+#ifdef FRONTLINE_NATIVE
+            // Widescreen: the ammo and weapon name out at the right edge, the
+            // compass at the left, no further out than at 16:9.
+            float shift = g_nativeWideMargin < 104.0f ? g_nativeWideMargin : 104.0f;
+            g_nativeHudShift = shift;
+#endif
             DrawBulletStats();
+#ifdef FRONTLINE_NATIVE
+            g_nativeHudShift = -shift;
+#endif
             DrawCompass();
             DrawHitStatus();
+#ifdef FRONTLINE_NATIVE
+            g_nativeHudShift = shift;
+#endif
             CPlayerWeaponObject* weapon = player->GetCurrentPlayerWeapon();
             if (weapon != NULL) {
                 DrawWeaponName(weapon->m_name);
             }
+#ifdef FRONTLINE_NATIVE
+            g_nativeHudShift = 0.0f;
+#endif
         }
     }
     firstframe = false;

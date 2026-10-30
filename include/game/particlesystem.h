@@ -40,7 +40,7 @@ struct MOH_particle_Struct {
     /* 0x10 */ f32 pos[3];
     /* 0x1C */ CQuaternion orient;
     /* 0x2C */ u8 unk_0x2C[0x1C];
-    /* 0x48 */ u32 id;  // looked up by CParticleSystem::Create(unsigned long)
+    /* 0x48 */ u32 id;  // looked up by CParticleSystem::Create(u32)
     /* 0x4C */ u8 unk_0x4C[0x24];
     /* 0x70 */ u8 flags;  // bit 0: not fogged
     /* 0x71 */ u8 startColorMin[4];
@@ -158,7 +158,8 @@ public:
     /* 0x88 */ u32 m_hasRotation : 1;
 
     static CParticleSystem* Create(void*);  // 0x80080B30
-    static CParticleSystem* Create(unsigned long);  // 0x80080C78
+    // u32 ids, as CLight::Create(u32).
+    static CParticleSystem* Create(u32);  // 0x80080C78
     static void Register(void*, int);  // 0x80080D9C
     static void Register(ShapeFile*);  // 0x80080DB0
     static void Reset();  // 0x80080EC4

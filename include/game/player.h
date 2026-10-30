@@ -363,4 +363,14 @@ extern float g_fScriptExplosionVelocityScaleOnPlayer;  // 0x8034EAD8
 extern float g_fScriptExplosionHeightScaleOnPlayer;  // 0x8034EADC
 
 extern float DEFAULT_FOV;  // 0x80350538 (degrees)
+
+// The normal (unzoomed) view's half-angle in degrees, which m_fov returns to:
+// 35, or natively Rewritten's field of view (NativeBaseFov, native/hooks.h).
+// Zooms (scopes, iron sights, binoculars) keep their own angles.
+#ifdef FRONTLINE_NATIVE
+#include "native/hooks.h"
+#define NORMAL_FOV NativeBaseFov()
+#else
+#define NORMAL_FOV 35.0f
+#endif
 #endif

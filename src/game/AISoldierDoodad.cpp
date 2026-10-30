@@ -1,4 +1,7 @@
 #include "game/AISoldierDoodad.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/ai.h"
+#endif
 
 #include "game/AIFilter.h"
 #include "game/AIObject.h"
@@ -86,6 +89,15 @@ void CAISoldierDoodad::FireAtCurrentTarget(float accuracy) {
     m_pSoldier->GetBulletEmitterMatrix(emitter);
     CVector3 from = *(CVector3*)emitter.m[3];
     CVector3 dir(target.field_0x0 - from.x, target.field_0x4 - from.y, target.field_0x8 - from.z);
+#ifdef FRONTLINE_NATIVE
+    // Rewritten: no shooting through a squadmate.
+    if (NativeAIOn()) {
+        CVector3 to(target.field_0x0, target.field_0x4, target.field_0x8);
+        if (NativeAIHoldFire(filter->m_pAIObject, from, to)) {
+            return;
+        }
+    }
+#endif
     if (m_pSoldier->FireWeapon(m_pSoldier->m_curWeapon, from, dir, accuracy)) {
         filter->m_pAIObject->m_flags |= 1;
     }

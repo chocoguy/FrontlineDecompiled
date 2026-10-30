@@ -2,6 +2,11 @@
 // per-frame camera/script update and shutdown, plus the level settings
 // (fog, clear color, default lights) from the level contents.
 #include "game/mainloop.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/ai.h"
+#include "native/corpses.h"
+#include "native/hooks.h"
+#endif
 #include "game/AIFilter.h"
 #include "game/ConfigGC.h"
 #include "game/Moh2.h"
@@ -129,6 +134,9 @@ void LoadLevelSettings() {
         TLT_FindNextResourceByType((TLTResourceID)0xD, NULL);
     float nearPlane = SettingF(settings, LS_NEAR);
     float farPlane = SettingF(settings, LS_FAR);
+#ifdef FRONTLINE_NATIVE
+    farPlane *= NativeDrawDistance();  // Rewritten (SetFog moves the fog with it)
+#endif
 
     int mission;
     int stage;
@@ -205,6 +213,10 @@ void Gameloop_Init(GameloopProgressFn progress, CSprite*, CSprite* sprite) {
     progress(NULL, sprite, 0.1f);
     progress(NULL, sprite, 0.1f);
     g_Shell.SetGlobalCheatStructure();
+#ifdef FRONTLINE_NATIVE
+    NativeAILevelStart(g_Shell.Get_currentDifficulty(), g_bInMultiplayerMode);
+    NativeCorpsesLevelStart(g_bInMultiplayerMode);
+#endif
     if (g_bInMultiplayerMode) {
         g_cheats.m_invincible = 0;
         g_cheats.field_0x1 = 0;
@@ -256,7 +268,12 @@ void Gameloop_Init(GameloopProgressFn progress, CSprite*, CSprite* sprite) {
     if (g_bInMultiplayerMode) {
         g_AnimObjFactory.Init(0x34, NULL);
     } else {
+#ifdef FRONTLINE_NATIVE
+        // With room for the bodies Rewritten keeps (native/corpses.h).
+        g_AnimObjFactory.Init(0x1A + NativeCorpseSlots(), NULL);
+#else
         g_AnimObjFactory.Init(0x1A, NULL);
+#endif
     }
     CStaticObjectFactory::Init();
     g_BulletFactory.Init();
@@ -309,7 +326,11 @@ void Gameloop_Init(GameloopProgressFn progress, CSprite*, CSprite* sprite) {
     progress(NULL, sprite, 0.5f);
     progress(NULL, sprite, 0.5f);
 
+#ifdef FRONTLINE_NATIVE
+    float fov = DEG_TO_RAD * NORMAL_FOV;
+#else
     float fov = DEG_TO_RAD * DEFAULT_FOV;
+#endif
     float aspect = CCamera::ASPECT_4x3;
     for (int i = 0; i < g_NumPlayers; i++) {
         CCamera* camera = &g_pPlayers[i]->m_camera;
@@ -383,6 +404,9 @@ void Gameloop_Shutdown() {
         }
     }
     BSUtilShutdownScriptingSystem();
+#ifdef FRONTLINE_NATIVE
+    NativeCorpsesReset();
+#endif
     g_AnimObjFactory.Shutdown();
     g_BulletFactory.Shutdown();
     g_WeaponFactory.Shutdown();
@@ -420,6 +444,18 @@ void Gameloop_Loop(float dt) {
         g_scene.SetCamera(camera);
         camera->AttemptUpdate(dt);
         g_scene.SetCamera(camera);
+#ifdef FRONTLINE_NATIVE
+        if (g_NumPlayers == 1) {
+            // The pitch is the camera's: it was set from the player as the
+            // last update left it.
+            int flags = (player->m_attached ? NATIVE_VIEW_ATTACHED : 0) | (player->m_onMG ? NATIVE_VIEW_ON_GUN : 0);
+            if (!player->m_onMG && (!player->m_attached || player->m_attachedKeepWeapon)) {
+                flags |= NATIVE_VIEW_LOOK;
+            }
+            float lookScale = tanf(0.5f * DEG_TO_RAD * player->m_fov) / tanf(0.5f * DEG_TO_RAD * NORMAL_FOV);
+            NativePlayerView(flags, lookScale, player->m_pitch);
+        }
+#endif
     }
 }
 
@@ -455,6 +491,9 @@ void Gameloop_Restart() {
     CWorldObject::SAcquireSet ids = {{0, 1, 2, 3}};
     g_pWorld->Acquire(ids, true);
 
+#ifdef FRONTLINE_NATIVE
+    NativeCorpsesReset();
+#endif
     g_AnimObjFactory.Reset();
     CStaticObjectFactory::Reset();
     CParticleSystem::Reset();

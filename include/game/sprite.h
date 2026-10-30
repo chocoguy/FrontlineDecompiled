@@ -80,6 +80,10 @@ public:
     static void InitClass(CRenderList*, CScreen*);  // 0x800824E4
     virtual ~CSprite();  // 0x800825B8
     CSprite(const char*, CSprite::ESpriteLoadType, ERenderPriority);  // 0x80082648
+#ifdef FRONTLINE_NATIVE
+    // A sprite of a shape file made in memory (DWI heap), which it then owns.
+    CSprite(ShapeFile* file, ERenderPriority priority);
+#endif
 };
 
 // The bin untextured polygons are queued on.

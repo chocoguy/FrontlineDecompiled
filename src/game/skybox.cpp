@@ -10,6 +10,9 @@
 #include "game/gameconfig.h"
 #include "game/toilet.h"
 #include "game/Moh2.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/hooks.h"
+#endif
 #include "dolphin/gx.h"
 
 class CVector4 {
@@ -53,6 +56,9 @@ void CSkyBoxRenderBin::Link(CDmaTag* tag, CDmaPacket& packet) {
     if (tag == NULL) {
         return;
     }
+#ifdef FRONTLINE_NATIVE
+    NativeDrawClass(NATIVE_DRAW_SKY);
+#endif
     GXClearVtxDesc();
     GXSetVtxDesc(9, 1);   // GX_VA_POS, direct
     GXSetVtxDesc(11, 1);  // GX_VA_CLR0, direct
@@ -92,6 +98,9 @@ void CSkyBoxRenderBin::Link(CDmaTag* tag, CDmaPacket& packet) {
         GXEnd();
     }
     GXSetCurrentMtx(0);
+#ifdef FRONTLINE_NATIVE
+    NativeDrawClass(NATIVE_DRAW_WORLD);
+#endif
 }
 
 int CSkyBoxRenderBin::Render(CDmaPacket& packet, void* data) {
@@ -199,7 +208,14 @@ void CSkyBox::Draw(CDrawContext& ctx) {
     ctx.m_pCamera->GetForward(forward);
     for (int face = 0; face < NUM_FACES; face++) {
         const CVector3& n = g_skyBoxNormals[face];
-        if (forward.z * n.z + (forward.x * n.x + forward.y * n.y) > 0.0f) {
+        bool facing = forward.z * n.z + (forward.x * n.x + forward.y * n.y) > 0.0f;
+#ifdef FRONTLINE_NATIVE
+        // A wider view sees faces at its sides that this test drops (past a
+        // tangent of 0.707; the original's 0.700 is just inside it), and so
+        // do frames drawn between the game's with the camera turned on.
+        facing = facing || g_nativeWideScale > 1.0f || NativeHighFrameRate();
+#endif
+        if (facing) {
             g_skyBoxRenderBin[face].m_visible = true;
             for (int i = 0; i < 4; i++) {
                 SVertex& v = m_verts[face][i];

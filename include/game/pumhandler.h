@@ -37,6 +37,15 @@ public:
 
 extern CUserMessageTable umTable;  // 0x801EF3EC
 
+#ifdef FRONTLINE_NATIVE
+// The prompts that name controller buttons, shown for the device in use (the
+// keyboard's keys or the original text; FrontlineRewritten's
+// game/native/prompts.cpp). Update runs once a frame.
+void NativePromptsLoaded(CUserMessageTable* table);
+void NativePromptsUnloaded(CUserMessageTable* table);
+void NativePromptsUpdate();
+#endif
+
 // String `index` of the user-message table, or NULL past its end.
 inline char* GetUMString(int index) {
     return index < umTable.m_count ? umTable.m_entries[index].m_string : NULL;

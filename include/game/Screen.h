@@ -104,6 +104,12 @@ public:
     static CScreen* GetCurrent();  // 0x8001BE68
     static void Init();  // 0x8001BE70
     static void VBlankHandler(u32);  // 0x8001BF1C
+#ifdef FRONTLINE_NATIVE
+    // Widescreen (Rewritten): renders `width` of the console's pixels wide
+    // from now on, with the 2D's 640 x 448 screen in the middle. For a
+    // level; the screen stays that wide until the process restarts.
+    void NativeSetRenderWidth(int width);
+#endif
 };
 
 // The screen as interlaced fields (size 0x110); vtable 0x80181D64
@@ -119,5 +125,17 @@ public:
 };
 
 extern CScreenFieldMode g_screen;  // 0x80196AC0 (Moh2.cpp)
+
+#ifdef FRONTLINE_NATIVE
+// Widescreen (CScreen::NativeSetRenderWidth): the render's width over the
+// 2D screen's 640, and the 2D screen's margin on each side of it in the
+// console's pixels; 1 and 0 at 4:3. The 3D view widens by the scale (same
+// height, more to the sides) and 2D draws reach into the margins.
+extern float g_nativeWideScale;
+extern float g_nativeWideMargin;
+// Added to the x of HUD sprites and text while set (the HUD's corners move
+// out to the screen's; UserInterface::Draw).
+extern float g_nativeHudShift;
+#endif
 
 #endif

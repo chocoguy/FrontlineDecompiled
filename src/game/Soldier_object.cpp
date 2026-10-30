@@ -1,5 +1,8 @@
 // CSoldierObject: the soldier characters (see Soldier_object.h).
 #include "game/Soldier_object.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/corpses.h"
+#endif
 #include "game/animated_volume.h"
 #include "game/animmot.h"
 #include "game/box.h"
@@ -76,6 +79,11 @@ void CSoldierObject::FadeOut(float duration) {
     m_velocity.y = 0.0f;
     m_velocity.x = 0.0f;
     m_fadeDropped = 0;
+#ifdef FRONTLINE_NATIVE
+    if (NativeCorpsesOn()) {
+        NativeCorpseFadeOut(this);
+    }
+#endif
 }
 
 // Bullets of the current weapon leave from the muzzle hard point of `gun`,

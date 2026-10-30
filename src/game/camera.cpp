@@ -8,6 +8,9 @@
 #include "game/draw_context.h"
 #include "game/vector.h"
 #include "math.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/hooks.h"
+#endif
 
 const float CCamera::ASPECT_4x3 = 0.75f;
 
@@ -50,10 +53,19 @@ void CFrustum::Set(const CCamera& camera, CScreen& screen, CViewport&) {
     m_planes[1].m_normal[1] = 1.0f;
     m_planes[1].m_normal[2] = 0.0f;
     m_planes[1].m_d = camera.m_far;
+#ifdef FRONTLINE_NATIVE
+    // Frames drawn between the game's turn the camera on: cull for a wider view.
+    const float cullX = NativeCullTan(camera.m_xScale, 0), cullY = NativeCullTan(camera.m_yScale, 1);
+    SetSidePlane(m_planes[2], -1.0f, -cullX, 0.0f);
+    SetSidePlane(m_planes[3], 1.0f, -cullX, 0.0f);
+    SetSidePlane(m_planes[4], 0.0f, -cullY, 1.0f);
+    SetSidePlane(m_planes[5], 0.0f, -cullY, -1.0f);
+#else
     SetSidePlane(m_planes[2], -1.0f, -camera.m_xScale, 0.0f);
     SetSidePlane(m_planes[3], 1.0f, -camera.m_xScale, 0.0f);
     SetSidePlane(m_planes[4], 0.0f, -camera.m_yScale, 1.0f);
     SetSidePlane(m_planes[5], 0.0f, -camera.m_yScale, -1.0f);
+#endif
 
     // one screen texel (in 1/16 units of a 4096-wide guard band) inside
     float xScale = camera.m_xScale;
@@ -93,7 +105,13 @@ int CCamera::IsPointVisible(CVector3, CDrawContext& ctx) const {
 
 // Field of view as horizontal and vertical half angles (radians).
 void CCamera::SetPerspective(float halfX, float halfY) {
+#ifdef FRONTLINE_NATIVE
+    // Widescreen: the same vertical view, wider to the sides. The frustum
+    // and so all culling follow.
+    m_xScale = tan(halfX) * g_nativeWideScale;
+#else
     m_xScale = tan(halfX);
+#endif
     m_yScale = tan(halfY);
     m_projectionValid = false;
     m_frustumValid = false;

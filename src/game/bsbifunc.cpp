@@ -5,6 +5,9 @@
 // check, mounted-gun points), the hint and prompt text, and fog/vibration/
 // particle/sound helpers.
 #include "game/bsbifunc.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/ai.h"
+#endif
 #include "game/AIDoodad.h"
 #include "game/AIFilter.h"
 #include "game/AIObject.h"
@@ -773,6 +776,12 @@ void BIFunc_AISetStatusVar(int** sp, void* self) {
             anim->SetCollisionId((EClsnId)25);
         }
     }
+#ifdef FRONTLINE_NATIVE
+    // Rewritten: an enemy drops its item as it dies, not after its animation.
+    if (index == 13 && value == 15) {
+        NativeEnemyDied((ISceneNode*)self);
+    }
+#endif
     BIFPop(sp);
 }
 
@@ -1245,7 +1254,16 @@ void BIFunc_PlayFacialAnimation(int** sp, void* self) {
 }
 
 void BIFunc_RegisterTimerEvent(int** sp, void*) {
+#ifdef FRONTLINE_NATIVE
+    // Rewritten's AI shortens some of the soldier scripts' timers.
+    int delay = BIFArg(sp, 0);
+    if (NativeAIOn()) {
+        delay = NativeAIScriptTimer(delay, BIFArg(sp, 1));
+    }
+    BSRegisterTimerEvent(delay, BIFArg(sp, 1), g_pBSObject, ADDR_TO_PTR(void, BIFArg(sp, 2)), (ETimerReplaceMethod)0);
+#else
     BSRegisterTimerEvent(BIFArg(sp, 0), BIFArg(sp, 1), g_pBSObject, ADDR_TO_PTR(void, BIFArg(sp, 2)), (ETimerReplaceMethod)0);
+#endif
     BIFPop(sp);
 }
 
@@ -1300,6 +1318,12 @@ void BIFunc_GetRandomInteger(int** sp, void*) {
     if (lo != hi) {
         value = MathFunRandomI64(lo, hi);
     }
+#ifdef FRONTLINE_NATIVE
+    // Rewritten's AI biases some of the soldier scripts' decisions.
+    if (NativeAIOn()) {
+        value = NativeAIScriptRandom(lo, hi, value);
+    }
+#endif
     BIFPop(sp);
     BIFReturn(sp, value);
 }
@@ -3128,7 +3152,7 @@ void BIFunc_CreateLightByType(int** sp, void* self) {
     offset.x = BIFArgF(sp, 1);
     offset.y = BIFArgF(sp, 2);
     offset.z = BIFArgF(sp, 3);
-    CLight* light = CLight::Create((unsigned long)BIFArg(sp, 0));
+    CLight* light = CLight::Create((u32)BIFArg(sp, 0));
     if (self != NULL && attach != 0) {
         ((ISceneNode*)self)->SetAttachedLight(light, offset);
     } else {
@@ -3780,6 +3804,13 @@ void BIFunc_SetWeaponDraw(int** sp, void* self) {
 // Leaves the object's dump object (a body or debris placed by its trigger)
 // at its position.
 void BIFunc_CreateDumpObject(int** sp, void* self) {
+#ifdef FRONTLINE_NATIVE
+    // Rewritten: not again for an enemy that dropped its item as it died.
+    if (NativeEnemyDropDone((ISceneNode*)self)) {
+        BIFPop(sp);
+        return;
+    }
+#endif
     TriggerObjectData_struct* data = ((ISceneNode*)self)->GetScriptObject()->m_trigger->m_data;
     int dumpType;
     int id;
@@ -5524,6 +5555,11 @@ bool DoTargetSearch(BSObject* obj, int mode, int, int, int* data, int* delay) {
         return false;
     }
     *delay = (int)MathFunRandomI64(1, 9) * obj->m_trigger->m_data->field_0x79;
+#ifdef FRONTLINE_NATIVE
+    if (NativeAIOn()) {
+        *delay = NativeAIReactionFrames(*delay);
+    }
+#endif
     *data = (int)PTR_TO_ADDR(found);
     return true;
 }
@@ -5798,10 +5834,18 @@ static inline BIFDataHeader* LoadBIFData() {
 
 static inline void InitBIFSchedules() {
     g_SoundSchedule.Init();
+#ifdef FRONTLINE_NATIVE
+    // Rewritten's AI polls more at once, so checks don't lag behind with many soldiers.
+    g_DistanceToTargetSchedule.Init(DoDistanceToTarget, NativeAIScheduleBatch(5), 1);
+    g_TargetSearchSchedule.Init(DoTargetSearch, NativeAIScheduleBatch(5), 1);
+    g_TargetCheckSchedule.Init(DoTargetCheck, NativeAIScheduleBatch(5), 7);
+    g_CorpseSearchSchedule.Init(DoCorpseSearch, NativeAIScheduleBatch(5), 0x1D);
+#else
     g_DistanceToTargetSchedule.Init(DoDistanceToTarget, 5, 1);
     g_TargetSearchSchedule.Init(DoTargetSearch, 5, 1);
     g_TargetCheckSchedule.Init(DoTargetCheck, 5, 7);
     g_CorpseSearchSchedule.Init(DoCorpseSearch, 5, 0x1D);
+#endif
     g_BuddyPlayerCheckSchedule.Init(DoBuddyPlayerCheck, 1, 0x78);
     g_MMGPointCheckSchedule.Init(DoMMGPointCheck, 5, 7);
 }
@@ -5874,10 +5918,18 @@ int BSInitBIFuncs() {
 int BSResetBIFuncs() {
     LoadBIFData();
     g_SoundSchedule.Init();
+#ifdef FRONTLINE_NATIVE
+    // Rewritten's AI polls more at once, so checks don't lag behind with many soldiers.
+    g_DistanceToTargetSchedule.Reset(DoDistanceToTarget, NativeAIScheduleBatch(5), 1);
+    g_TargetSearchSchedule.Reset(DoTargetSearch, NativeAIScheduleBatch(5), 1);
+    g_TargetCheckSchedule.Reset(DoTargetCheck, NativeAIScheduleBatch(5), 7);
+    g_CorpseSearchSchedule.Reset(DoCorpseSearch, NativeAIScheduleBatch(5), 0x1D);
+#else
     g_DistanceToTargetSchedule.Reset(DoDistanceToTarget, 5, 1);
     g_TargetSearchSchedule.Reset(DoTargetSearch, 5, 1);
     g_TargetCheckSchedule.Reset(DoTargetCheck, 5, 7);
     g_CorpseSearchSchedule.Reset(DoCorpseSearch, 5, 0x1D);
+#endif
     g_BuddyPlayerCheckSchedule.Reset(DoBuddyPlayerCheck, 1, 0x78);
     g_MMGPointCheckSchedule.Reset(DoMMGPointCheck, 5, 7);
     ResetHints();

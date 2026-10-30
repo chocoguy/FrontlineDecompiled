@@ -68,6 +68,15 @@ CSprite::CSprite(const char* name, CSprite::ESpriteLoadType type, ERenderPriorit
     m_texture.Set(m_file, false);
 }
 
+#ifdef FRONTLINE_NATIVE
+CSprite::CSprite(ShapeFile* file, ERenderPriority priority) {
+    m_type = priority;
+    m_file = file;
+    g_pRenderList->Register(*this);
+    m_texture.Set(m_file, false);
+}
+#endif
+
 CSprite::~CSprite() {
     g_pRenderList->UnRegister(*this);
     if (m_file != NULL) {
@@ -132,6 +141,9 @@ int CSprite::Render(CDmaPacket& packet, void* data) {
     switch (ctx->type) {
     case 0:
         *(CSpriteDrawContext*)packet.m_ptr = *ctx;
+#ifdef FRONTLINE_NATIVE
+        ((CSpriteDrawContext*)packet.m_ptr)->x += g_nativeHudShift;
+#endif
         packet.m_ptr += sizeof(CSpriteDrawContext);
         break;
     case 1: {
@@ -141,6 +153,9 @@ int CSprite::Render(CDmaPacket& packet, void* data) {
         packet.m_ptr += sizeof(CSpriteDrawContext);
         for (int i = 0; i < n; i++) {
             *(_spritepolyvert*)packet.m_ptr = v[i];
+#ifdef FRONTLINE_NATIVE
+            ((_spritepolyvert*)packet.m_ptr)->x += g_nativeHudShift;
+#endif
             packet.m_ptr += sizeof(_spritepolyvert);
         }
         break;
@@ -163,8 +178,15 @@ void CSprite::Link(CDmaTag* tags, CDmaPacket& packet) {
     f32 projection[4][4];
     f32 view[3][4];
     GXGetProjectionv(savedProjection);
+#ifdef FRONTLINE_NATIVE
+    // Widescreen: the 640 x 448 screen in the middle, the margins beyond it.
+    C_MTXOrtho(projection, 448.0f * g_viewport.m_top, 448.0f * g_viewport.m_bottom,
+               (640.0f + 2 * g_nativeWideMargin) * g_viewport.m_left - g_nativeWideMargin,
+               (640.0f + 2 * g_nativeWideMargin) * g_viewport.m_right - g_nativeWideMargin, 5.0f, 2000.0f);
+#else
     C_MTXOrtho(projection, 448.0f * g_viewport.m_top, 448.0f * g_viewport.m_bottom,
                640.0f * g_viewport.m_left, 640.0f * g_viewport.m_right, 5.0f, 2000.0f);
+#endif
     GXSetProjection(projection, GX_ORTHOGRAPHIC);
     PSMTXIdentity(view);
     view[2][3] = -1200.0f;

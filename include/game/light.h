@@ -40,7 +40,7 @@ struct MOH_animatedLight_Struct {
     /* 0x1C */ u8 unk_0x1C[0x12];
     /* 0x2E */ s16 radius;  // 1/16 units
     /* 0x30 */ u8 unk_0x30[0x18];
-    /* 0x48 */ u32 id;  // looked up by CLight::Create(unsigned long)
+    /* 0x48 */ u32 id;  // looked up by CLight::Create(u32)
     /* 0x4C */ u8 unk_0x4C[0x24];
     /* 0x70 */ u8 mode;  // ANIMLIGHT_*
     /* 0x72 */ s16 numFrames;
@@ -140,7 +140,9 @@ public:
     virtual void MarkForDestruction(int);  // 0x800785B0
     virtual void Destroy();  // 0x80078618
     static CLight* Create(void*);  // 0x8007861C
-    static CLight* Create(unsigned long);  // 0x80078648
+    // Ids are u32, not unsigned long: natively a script's int id with the top
+    // bit set would sign-extend to 64 bits and never match.
+    static CLight* Create(u32);  // 0x80078648
     static void Register(void*, int);  // 0x80078674
     static void ResetClass();  // 0x80078688
     static void InitClass(CScene*);  // 0x800787D4
@@ -223,7 +225,7 @@ public:
     /* 0x30 */ CAnimLightPool<CInstancedAnimLight> m_instanced;
     /* 0x44 */ CAnimLightPool<CPropertyAnimLight> m_property;
     CPropertyAnimLight* Create(MOH_animatedLight_Struct*);  // 0x800777C8
-    CInstancedAnimLight* Create(unsigned long);  // 0x80077858
+    CInstancedAnimLight* Create(u32);  // 0x80077858
     virtual ~CAnimLightManager() {}  // 0x8007890C
     virtual void Destroy() {}  // 0x8007897C
 };

@@ -14,6 +14,9 @@
 #include "game/texture.h"
 #include "game/texpack.h"
 #include "game/matrix.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/hooks.h"
+#endif
 #include "game/offsetptr.h"
 #include "game/Screen.h"
 #include "game/ShellMenu.h"
@@ -203,6 +206,9 @@ void CDMRenderBin::Link(CDmaTag*, CDmaPacket&) {
         GXSetCopyClear(clear, 0xFFFFFF);
         GXCopyDisp(g_screen.m_pDrawBuffer, 1);
         GXSetColorUpdate(1);
+#ifdef FRONTLINE_NATIVE
+        NativeDrawClass(NATIVE_DRAW_VIEWMODEL);
+#endif
     }
 }
 

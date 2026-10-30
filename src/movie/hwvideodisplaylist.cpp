@@ -4,6 +4,9 @@
 #include "movie/hwvideodisplaylist.h"
 #include "game/Screen.h"
 #include "dolphin/os.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/hooks.h"
+#endif
 
 static const u32 kAttrs[3] = {GX_VA_POS, GX_VA_CLR0, GX_VA_TEX0};
 
@@ -114,6 +117,22 @@ void GCHW_VD::iDraw() {
     GXInitTexObjCI(&m_uTex, u, cw, ch, 9, 0, 0, 0, 0);
     GXInitTexObjLOD(&m_uTex, 0, 0, 0.0f, 0.0f, 0.0f, 0, 0, 0);
     tBigYUVSwizzler_DrawSetup(m_swizzler, &m_yTex, &m_vTex, &m_uTex);
+#ifdef FRONTLINE_NATIVE
+    if (NativeGameMode() == NATIVE_MODE_REWRITTEN) {
+        // The planes read directly and filtered, without the swizzle's point
+        // lookups, so a movie scaled up is smooth. The TEV's YUV to RGB stays.
+        NativeLinearTexture(&m_uTex);
+        NativeLinearTexture(&m_vTex);
+        NativeLinearTexture(&m_yTex);
+        GXLoadTexObj(&m_uTex, 0);
+        GXLoadTexObj(&m_vTex, 1);
+        GXLoadTexObj(&m_yTex, 2);
+        GXSetNumIndStages(0);
+        for (i = 0; i < 5; i++) {
+            GXSetTevDirect(i);
+        }
+    }
+#endif
 
     GXClearVtxDesc();
     GXSetVtxDesc(GX_VA_POS, GX_DIRECT);

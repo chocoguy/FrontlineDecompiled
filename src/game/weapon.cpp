@@ -1,5 +1,8 @@
 // CWeapon: held guns and throwables.
 #include "game/weapon.h"
+#ifdef FRONTLINE_NATIVE
+#include "native/ai.h"
+#endif
 #include "game/bulletfactory.h"
 #include "game/bullet.h"
 #include "game/thrownbullet.h"
@@ -125,7 +128,12 @@ void CWeapon::FireBullet() {
         if (m_pHolder != player && m_pProperties->m_isProjectile == 0 &&
             (m_pProperties->m_bulletType == 4 || m_pProperties->m_bulletType == 3)) {
             dir.z = 0.0f;
+#ifdef FRONTLINE_NATIVE
+            // Rewritten's AI may lob at 45 or throw flat at 20 degrees.
+            dir.z = (NativeAIOn() ? NativeAIGrenadeLaunchTan(m_pHolder) : 0.577f) * dir.Length();
+#else
             dir.z = 0.577f * dir.Length();
+#endif
         }
         bullet = g_pBulletFactory->CreateBullet(m_pProperties->m_bulletType, m_pProperties->m_isProjectile != 0,
                                                 origin, dir, m_pProperties->m_speed * m_speedScale,
